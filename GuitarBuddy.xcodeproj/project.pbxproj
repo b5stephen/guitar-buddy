@@ -400,7 +400,6 @@
 				DEVELOPMENT_TEAM = 2FBZHF6G7Q;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "GuitarBuddy-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Guitar Buddy";
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Lets you search and play songs from your personal music library to practice with";
@@ -436,7 +435,6 @@
 				DEVELOPMENT_TEAM = 2FBZHF6G7Q;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "GuitarBuddy-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Guitar Buddy";
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Lets you search and play songs from your personal music library to practice with";
