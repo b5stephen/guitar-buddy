@@ -3,6 +3,7 @@
 //  GuitarBuddy
 //
 
+import Combine
 import Foundation
 import MusicKit
 import Observation
@@ -21,18 +22,28 @@ final class PlaybackController {
     private var modelContext: ModelContext?
 
     /// True while `loadPreference(for:)` is writing `playbackRate`, so the
-    /// `didSet` doesn't immediately save the value it just read back.
+    /// `didSet` doesn't poke the player with a rate mid-load.
     private var isLoadingPreference = false
 
     var selectedSong: Song?
-    var isPlaying = false
+    /// Mirrors `player.state.playbackStatus`, so the UI stays correct when
+    /// playback is started or stopped from outside the app (Control Centre,
+    /// headphones, another app taking the queue, or a track simply ending).
+    private(set) var isPlaying = false
     var authorizationStatus: MusicAuthorization.Status = MusicAuthorization.currentStatus
+
+    /// Watches the shared player so `isPlaying` never drifts from reality.
+    private var stateObservation: Task<Void, Never>?
 
     var playbackRate: Double = 1.0 {
         didSet {
             guard !isLoadingPreference else { return }
-            applyRateIfPossible()
-            savePreference()
+            // Only push the rate while playing: assigning `playbackRate` on a
+            // paused player makes it start, so a paused song would jump to life
+            // just because the user turned the speed dial.
+            if isPlaying {
+                applyRateIfPossible()
+            }
         }
     }
 
@@ -47,6 +58,28 @@ final class PlaybackController {
     /// kept out of `init` so this class stays easy to preview.
     func configure(modelContext: ModelContext) {
         self.modelContext = modelContext
+        startObservingPlayerState()
+    }
+
+    /// `MusicPlayerState` is an `ObservableObject`; its `objectWillChange` is
+    /// the only signal MusicKit gives for externally-driven transport changes.
+    private func startObservingPlayerState() {
+        guard stateObservation == nil else { return }
+        syncPlaybackState()
+        let state = player.state
+        stateObservation = Task { [weak self] in
+            for await _ in state.objectWillChange.values {
+                // "willChange" — let the new value land before reading it.
+                try? await Task.sleep(for: .milliseconds(30))
+                guard let self else { return }
+                self.syncPlaybackState()
+            }
+        }
+    }
+
+    /// Pulls the truth back out of the player.
+    func syncPlaybackState() {
+        isPlaying = player.state.playbackStatus == .playing
     }
 
     func requestAuthorizationIfNeeded() async {
@@ -63,13 +96,13 @@ final class PlaybackController {
         do {
             player.queue = [song]
             try await playerBox.play()
-            isPlaying = true
+            syncPlaybackState()
             // The player resets rate to 1.0 on play(), so re-apply shortly after.
             try? await Task.sleep(for: .milliseconds(300))
             applyRateIfPossible()
             verifyRateStuck()
         } catch {
-            isPlaying = false
+            syncPlaybackState()
             errorMessage = "Couldn't play that track: \(error.localizedDescription)"
         }
     }
@@ -77,17 +110,17 @@ final class PlaybackController {
     func togglePlayPause() {
         if isPlaying {
             player.pause()
-            isPlaying = false
+            syncPlaybackState()
         } else {
-            isPlaying = true
             Task {
                 do {
                     try await playerBox.play()
+                    syncPlaybackState()
                     try? await Task.sleep(for: .milliseconds(300))
                     applyRateIfPossible()
                     verifyRateStuck()
                 } catch {
-                    isPlaying = false
+                    syncPlaybackState()
                     errorMessage = "Couldn't resume: \(error.localizedDescription)"
                 }
             }
@@ -129,15 +162,16 @@ final class PlaybackController {
         )
         if let existing = try? modelContext.fetch(descriptor).first {
             playbackRate = existing.speed
-            existing.lastUsed = .now
-            try? modelContext.save()
         } else {
             playbackRate = 1.0
         }
     }
 
-    /// Upserts the current speed for the current song.
-    private func savePreference() {
+    /// Upserts the current speed for the current song. Deliberately *not*
+    /// called from `playbackRate`'s `didSet` — speeds are only persisted when
+    /// the user explicitly saves a song, so the store stays a curated list
+    /// rather than a log of everything ever played.
+    func saveCurrentSpeed() {
         guard let modelContext, let song = selectedSong else { return }
         let songID = song.id.rawValue
         let descriptor = FetchDescriptor<SongSpeedPreference>(

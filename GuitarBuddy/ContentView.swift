@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @State private var controller = PlaybackController()
     @State private var showPicker = false
 
@@ -52,6 +53,10 @@ struct ContentView: View {
             .task {
                 controller.configure(modelContext: modelContext)
                 await controller.requestAuthorizationIfNeeded()
+            }
+            .onChange(of: scenePhase) { _, phase in
+                // Transport may have moved while we were backgrounded.
+                if phase == .active { controller.syncPlaybackState() }
             }
             .task(id: controller.selectedSong) {
                 if let song = controller.selectedSong {
