@@ -34,6 +34,22 @@ final class PlaybackController {
 
     /// Watches the shared player so `isPlaying` never drifts from reality.
     private var stateObservation: Task<Void, Never>?
+    /// Drives `playbackTime`. MusicKit publishes no change signal for the
+    /// playhead, so the only way to follow it is to keep asking.
+    private var tickObservation: Task<Void, Never>?
+
+    /// Seconds into the current track. Written by the ticker while playing and
+    /// by `seek(to:)` when the user scrubs.
+    private(set) var playbackTime: TimeInterval = 0
+    /// Length of the current track, or `nil` when Apple Music didn't give one.
+    var duration: TimeInterval? { selectedSong?.duration }
+    /// True while the user has a finger on the scrubber, which suspends the
+    /// ticker so the thumb doesn't fight the playhead.
+    var isScrubbing = false
+    /// When the last seek was issued. The player takes a moment to actually
+    /// move, and reading it in that window reports the *old* position — which
+    /// would yank the bar back to where the user just dragged away from.
+    private var lastSeek: ContinuousClock.Instant?
 
     var playbackRate: Double = 1.0 {
         didSet {
@@ -66,6 +82,7 @@ final class PlaybackController {
     private func startObservingPlayerState() {
         guard stateObservation == nil else { return }
         syncPlaybackState()
+        startTicking()
         let state = player.state
         stateObservation = Task { [weak self] in
             for await _ in state.objectWillChange.values {
@@ -80,6 +97,61 @@ final class PlaybackController {
     /// Pulls the truth back out of the player.
     func syncPlaybackState() {
         isPlaying = player.state.playbackStatus == .playing
+        readPlaybackTime()
+    }
+
+    /// Polls the playhead a few times a second — often enough for the elapsed
+    /// time to look live, cheap enough to leave running.
+    private func startTicking() {
+        guard tickObservation == nil else { return }
+        tickObservation = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(250))
+                guard let self else { return }
+                guard self.isPlaying, !self.isScrubbing else { continue }
+                self.readPlaybackTime()
+            }
+        }
+    }
+
+    private func readPlaybackTime() {
+        // Inside the settling window after a seek the player still reports the
+        // old position, so leave the value we set optimistically in place.
+        if let lastSeek {
+            guard lastSeek.duration(to: .now) > .milliseconds(500) else { return }
+            self.lastSeek = nil
+        }
+        let time = player.playbackTime
+        // Clamp: the player can report a hair past the end as a track wraps.
+        playbackTime = max(0, min(time, duration ?? time))
+    }
+
+    // MARK: - Seeking
+
+    /// Moves the playhead. Safe to call while paused — unlike `playbackRate`,
+    /// assigning `playbackTime` doesn't start playback.
+    func seek(to time: TimeInterval) {
+        let target = max(0, min(time, duration ?? time))
+        playbackTime = target
+        player.playbackTime = target
+        lastSeek = .now
+    }
+
+    /// Nudges the playhead by `offset` seconds, for the skip buttons.
+    func skip(by offset: TimeInterval) {
+        seek(to: playbackTime + offset)
+    }
+
+    /// Ends a scrub gesture at `time`: one seek, then the ticker takes over.
+    func endScrub(at time: TimeInterval) {
+        seek(to: time)
+        isScrubbing = false
+    }
+
+    /// Back to the top of the track — the move you make constantly when
+    /// drilling the same passage.
+    func restart() {
+        seek(to: 0)
     }
 
     func requestAuthorizationIfNeeded() async {
@@ -93,6 +165,7 @@ final class PlaybackController {
         loadPreference(for: song)
         errorMessage = nil
         rateWarning = nil
+        playbackTime = 0
         do {
             player.queue = [song]
             try await playerBox.play()

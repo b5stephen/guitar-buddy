@@ -31,14 +31,18 @@ struct ContentView: View {
                         SpeedWheelPicker(speed: $controller.playbackRate)
                             .padding(.horizontal)
 
-                        Button {
-                            controller.togglePlayPause()
-                        } label: {
-                            Image(systemName: controller.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                                .font(.system(size: 64))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(controller.isPlaying ? "Pause" : "Play")
+                        PlaybackScrubber(
+                            position: controller.playbackTime,
+                            duration: controller.duration,
+                            onScrub: { _ in controller.isScrubbing = true },
+                            onCommit: { controller.endScrub(at: $0) }
+                        )
+                        // Wider than the usual 16pt: the bar spans the full
+                        // width, so it needs more breathing room off the edges
+                        // than the centred content above it.
+                        .padding(.horizontal, 32)
+
+                        transportControls
                     }
 
                     messages
@@ -64,6 +68,50 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    /// Restart, skip back, play/pause, skip forward — the moves you make over
+    /// and over when drilling a passage, all reachable with one thumb.
+    private var transportControls: some View {
+        HStack(spacing: 28) {
+            transportButton("gobackward", label: "Restart") {
+                controller.restart()
+            }
+            transportButton("gobackward.10", label: "Back 10 seconds") {
+                controller.skip(by: -10)
+            }
+
+            Button {
+                controller.togglePlayPause()
+            } label: {
+                Image(systemName: controller.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                    .font(.system(size: 64))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(controller.isPlaying ? "Pause" : "Play")
+
+            transportButton("goforward.10", label: "Forward 10 seconds") {
+                controller.skip(by: 10)
+            }
+
+            // Balances the restart button on the left so play/pause sits dead
+            // centre rather than drifting right.
+            transportButton("gobackward", label: "") {}
+                .hidden()
+        }
+    }
+
+    private func transportButton(
+        _ systemImage: String,
+        label: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 26))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 
     @ViewBuilder
