@@ -14,9 +14,12 @@ struct ContentView: View {
     @State private var showPicker = false
 
     var body: some View {
-        NavigationStack {
+        // The content is short enough to fit on most screens, so it sits
+        // centred; `minHeight` keeps it scrollable on the ones where it
+        // doesn't (small phones, large text).
+        GeometryReader { proxy in
             ScrollView {
-                VStack(spacing: 32) {
+                VStack(spacing: 24) {
                     nowPlaying
 
                     Button {
@@ -47,25 +50,24 @@ struct ContentView: View {
 
                     messages
                 }
-                .padding(.top, 40)
-                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .frame(maxWidth: .infinity, minHeight: proxy.size.height)
             }
-            .navigationTitle("Guitar Buddy")
-            .sheet(isPresented: $showPicker) {
-                SongPickerView(selection: $controller.selectedSong)
-            }
-            .task {
-                controller.configure(modelContext: modelContext)
-                await controller.requestAuthorizationIfNeeded()
-            }
-            .onChange(of: scenePhase) { _, phase in
-                // Transport may have moved while we were backgrounded.
-                if phase == .active { controller.syncPlaybackState() }
-            }
-            .task(id: controller.selectedSong) {
-                if let song = controller.selectedSong {
-                    await controller.play(song: song)
-                }
+        }
+        .sheet(isPresented: $showPicker) {
+            SongPickerView(selection: $controller.selectedSong)
+        }
+        .task {
+            controller.configure(modelContext: modelContext)
+            await controller.requestAuthorizationIfNeeded()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Transport may have moved while we were backgrounded.
+            if phase == .active { controller.syncPlaybackState() }
+        }
+        .task(id: controller.selectedSong) {
+            if let song = controller.selectedSong {
+                await controller.play(song: song)
             }
         }
     }
@@ -117,11 +119,7 @@ struct ContentView: View {
     @ViewBuilder
     private var nowPlaying: some View {
         if let song = controller.selectedSong {
-            VStack(spacing: 10) {
-                if let artwork = song.artwork {
-                    ArtworkImage(artwork, width: 160, height: 160)
-                        .clipShape(.rect(cornerRadius: 12))
-                }
+            VStack(spacing: 4) {
                 Text(song.title)
                     .font(.title2.bold())
                     .multilineTextAlignment(.center)
