@@ -55,7 +55,13 @@ struct SpeedWheelPicker: View {
                 .frame(width: diameter, height: diameter)
                 .contentShape(.circle)
                 .gesture(rotationGesture)
-                .onTapGesture(count: 2) { reset() }
+                // The rotation gesture has `minimumDistance: 0`, so it claims
+                // the touch the instant a finger lands and an ordinary
+                // `.onTapGesture` never gets a look in. Recognising the tap
+                // simultaneously lets both see the same touches; a double tap
+                // moves no distance, so the drag it also triggers commits the
+                // value unchanged and does no harm.
+                .simultaneousGesture(TapGesture(count: 2).onEnded { reset() })
 
             Text("Turn the wheel to adjust — double-tap for 100%")
                 .font(.footnote)
