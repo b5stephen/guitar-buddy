@@ -12,37 +12,37 @@
 			containerPortal = DCD17B98304BF15600BC02ED /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = DCD17B9F304BF15600BC02ED;
-			remoteInfo = "Guitar Buddy";
+			remoteInfo = "GuitarBuddy";
 		};
 		DCD17BBA304BF15800BC02ED /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = DCD17B98304BF15600BC02ED /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = DCD17B9F304BF15600BC02ED;
-			remoteInfo = "Guitar Buddy";
+			remoteInfo = "GuitarBuddy";
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		DCD17BA0304BF15600BC02ED /* Guitar Buddy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Guitar Buddy.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		DCD17BAF304BF15800BC02ED /* Guitar BuddyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Guitar BuddyTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		DCD17BB9304BF15800BC02ED /* Guitar BuddyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Guitar BuddyUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		DCD17BA0304BF15600BC02ED /* GuitarBuddy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "GuitarBuddy.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		DCD17BAF304BF15800BC02ED /* GuitarBuddyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "GuitarBuddyTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		DCD17BB9304BF15800BC02ED /* GuitarBuddyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "GuitarBuddyUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		DCD17BA2304BF15600BC02ED /* Guitar Buddy */ = {
+		DCD17BA2304BF15600BC02ED /* GuitarBuddy */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Guitar Buddy";
+			path = "GuitarBuddy";
 			sourceTree = "<group>";
 		};
-		DCD17BB2304BF15800BC02ED /* Guitar BuddyTests */ = {
+		DCD17BB2304BF15800BC02ED /* GuitarBuddyTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Guitar BuddyTests";
+			path = "GuitarBuddyTests";
 			sourceTree = "<group>";
 		};
-		DCD17BBC304BF15800BC02ED /* Guitar BuddyUITests */ = {
+		DCD17BBC304BF15800BC02ED /* GuitarBuddyUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Guitar BuddyUITests";
+			path = "GuitarBuddyUITests";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -75,9 +75,9 @@
 		DCD17B97304BF15600BC02ED = {
 			isa = PBXGroup;
 			children = (
-				DCD17BA2304BF15600BC02ED /* Guitar Buddy */,
-				DCD17BB2304BF15800BC02ED /* Guitar BuddyTests */,
-				DCD17BBC304BF15800BC02ED /* Guitar BuddyUITests */,
+				DCD17BA2304BF15600BC02ED /* GuitarBuddy */,
+				DCD17BB2304BF15800BC02ED /* GuitarBuddyTests */,
+				DCD17BBC304BF15800BC02ED /* GuitarBuddyUITests */,
 				DCD17BA1304BF15600BC02ED /* Products */,
 			);
 			sourceTree = "<group>";
@@ -85,9 +85,9 @@
 		DCD17BA1304BF15600BC02ED /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				DCD17BA0304BF15600BC02ED /* Guitar Buddy.app */,
-				DCD17BAF304BF15800BC02ED /* Guitar BuddyTests.xctest */,
-				DCD17BB9304BF15800BC02ED /* Guitar BuddyUITests.xctest */,
+				DCD17BA0304BF15600BC02ED /* GuitarBuddy.app */,
+				DCD17BAF304BF15800BC02ED /* GuitarBuddyTests.xctest */,
+				DCD17BB9304BF15800BC02ED /* GuitarBuddyUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -95,9 +95,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		DCD17B9F304BF15600BC02ED /* Guitar Buddy */ = {
+		DCD17B9F304BF15600BC02ED /* GuitarBuddy */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = DCD17BC3304BF15800BC02ED /* Build configuration list for PBXNativeTarget "Guitar Buddy" */;
+			buildConfigurationList = DCD17BC3304BF15800BC02ED /* Build configuration list for PBXNativeTarget "GuitarBuddy" */;
 			buildPhases = (
 				DCD17B9C304BF15600BC02ED /* Sources */,
 				DCD17B9D304BF15600BC02ED /* Frameworks */,
@@ -108,18 +108,18 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				DCD17BA2304BF15600BC02ED /* Guitar Buddy */,
+				DCD17BA2304BF15600BC02ED /* GuitarBuddy */,
 			);
-			name = "Guitar Buddy";
+			name = "GuitarBuddy";
 			packageProductDependencies = (
 			);
-			productName = "Guitar Buddy";
-			productReference = DCD17BA0304BF15600BC02ED /* Guitar Buddy.app */;
+			productName = "GuitarBuddy";
+			productReference = DCD17BA0304BF15600BC02ED /* GuitarBuddy.app */;
 			productType = "com.apple.product-type.application";
 		};
-		DCD17BAE304BF15800BC02ED /* Guitar BuddyTests */ = {
+		DCD17BAE304BF15800BC02ED /* GuitarBuddyTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = DCD17BC6304BF15800BC02ED /* Build configuration list for PBXNativeTarget "Guitar BuddyTests" */;
+			buildConfigurationList = DCD17BC6304BF15800BC02ED /* Build configuration list for PBXNativeTarget "GuitarBuddyTests" */;
 			buildPhases = (
 				DCD17BAB304BF15800BC02ED /* Sources */,
 				DCD17BAC304BF15800BC02ED /* Frameworks */,
@@ -131,18 +131,18 @@
 				DCD17BB1304BF15800BC02ED /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				DCD17BB2304BF15800BC02ED /* Guitar BuddyTests */,
+				DCD17BB2304BF15800BC02ED /* GuitarBuddyTests */,
 			);
-			name = "Guitar BuddyTests";
+			name = "GuitarBuddyTests";
 			packageProductDependencies = (
 			);
-			productName = "Guitar BuddyTests";
-			productReference = DCD17BAF304BF15800BC02ED /* Guitar BuddyTests.xctest */;
+			productName = "GuitarBuddyTests";
+			productReference = DCD17BAF304BF15800BC02ED /* GuitarBuddyTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		DCD17BB8304BF15800BC02ED /* Guitar BuddyUITests */ = {
+		DCD17BB8304BF15800BC02ED /* GuitarBuddyUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = DCD17BC9304BF15800BC02ED /* Build configuration list for PBXNativeTarget "Guitar BuddyUITests" */;
+			buildConfigurationList = DCD17BC9304BF15800BC02ED /* Build configuration list for PBXNativeTarget "GuitarBuddyUITests" */;
 			buildPhases = (
 				DCD17BB5304BF15800BC02ED /* Sources */,
 				DCD17BB6304BF15800BC02ED /* Frameworks */,
@@ -154,13 +154,13 @@
 				DCD17BBB304BF15800BC02ED /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				DCD17BBC304BF15800BC02ED /* Guitar BuddyUITests */,
+				DCD17BBC304BF15800BC02ED /* GuitarBuddyUITests */,
 			);
-			name = "Guitar BuddyUITests";
+			name = "GuitarBuddyUITests";
 			packageProductDependencies = (
 			);
-			productName = "Guitar BuddyUITests";
-			productReference = DCD17BB9304BF15800BC02ED /* Guitar BuddyUITests.xctest */;
+			productName = "GuitarBuddyUITests";
+			productReference = DCD17BB9304BF15800BC02ED /* GuitarBuddyUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -186,7 +186,7 @@
 					};
 				};
 			};
-			buildConfigurationList = DCD17B9B304BF15600BC02ED /* Build configuration list for PBXProject "Guitar Buddy" */;
+			buildConfigurationList = DCD17B9B304BF15600BC02ED /* Build configuration list for PBXProject "GuitarBuddy" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -200,9 +200,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				DCD17B9F304BF15600BC02ED /* Guitar Buddy */,
-				DCD17BAE304BF15800BC02ED /* Guitar BuddyTests */,
-				DCD17BB8304BF15800BC02ED /* Guitar BuddyUITests */,
+				DCD17B9F304BF15600BC02ED /* GuitarBuddy */,
+				DCD17BAE304BF15800BC02ED /* GuitarBuddyTests */,
+				DCD17BB8304BF15800BC02ED /* GuitarBuddyUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -258,12 +258,12 @@
 /* Begin PBXTargetDependency section */
 		DCD17BB1304BF15800BC02ED /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = DCD17B9F304BF15600BC02ED /* Guitar Buddy */;
+			target = DCD17B9F304BF15600BC02ED /* GuitarBuddy */;
 			targetProxy = DCD17BB0304BF15800BC02ED /* PBXContainerItemProxy */;
 		};
 		DCD17BBB304BF15800BC02ED /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = DCD17B9F304BF15600BC02ED /* Guitar Buddy */;
+			target = DCD17B9F304BF15600BC02ED /* GuitarBuddy */;
 			targetProxy = DCD17BBA304BF15800BC02ED /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -400,6 +400,10 @@
 				DEVELOPMENT_TEAM = 2FBZHF6G7Q;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "GuitarBuddy-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Guitar Buddy";
+				INFOPLIST_KEY_LSApplicationCategoryType = "";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Lets you search and play songs from your personal music library to practice with";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -417,7 +421,7 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -432,6 +436,10 @@
 				DEVELOPMENT_TEAM = 2FBZHF6G7Q;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "GuitarBuddy-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Guitar Buddy";
+				INFOPLIST_KEY_LSApplicationCategoryType = "";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Lets you search and play songs from your personal music library to practice with";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -449,7 +457,7 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -470,9 +478,9 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Guitar Buddy.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Guitar Buddy";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GuitarBuddy.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/GuitarBuddy";
 			};
 			name = Debug;
 		};
@@ -492,9 +500,9 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Guitar Buddy.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Guitar Buddy";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GuitarBuddy.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/GuitarBuddy";
 			};
 			name = Release;
 		};
@@ -512,9 +520,9 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = "Guitar Buddy";
+				TEST_TARGET_NAME = "GuitarBuddy";
 			};
 			name = Debug;
 		};
@@ -532,16 +540,16 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = "Guitar Buddy";
+				TEST_TARGET_NAME = "GuitarBuddy";
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		DCD17B9B304BF15600BC02ED /* Build configuration list for PBXProject "Guitar Buddy" */ = {
+		DCD17B9B304BF15600BC02ED /* Build configuration list for PBXProject "GuitarBuddy" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				DCD17BC1304BF15800BC02ED /* Debug */,
@@ -550,7 +558,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		DCD17BC3304BF15800BC02ED /* Build configuration list for PBXNativeTarget "Guitar Buddy" */ = {
+		DCD17BC3304BF15800BC02ED /* Build configuration list for PBXNativeTarget "GuitarBuddy" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				DCD17BC4304BF15800BC02ED /* Debug */,
@@ -559,7 +567,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		DCD17BC6304BF15800BC02ED /* Build configuration list for PBXNativeTarget "Guitar BuddyTests" */ = {
+		DCD17BC6304BF15800BC02ED /* Build configuration list for PBXNativeTarget "GuitarBuddyTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				DCD17BC7304BF15800BC02ED /* Debug */,
@@ -568,7 +576,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		DCD17BC9304BF15800BC02ED /* Build configuration list for PBXNativeTarget "Guitar BuddyUITests" */ = {
+		DCD17BC9304BF15800BC02ED /* Build configuration list for PBXNativeTarget "GuitarBuddyUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				DCD17BCA304BF15800BC02ED /* Debug */,
