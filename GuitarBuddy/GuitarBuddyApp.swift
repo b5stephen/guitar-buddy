@@ -12,7 +12,7 @@ import SwiftUI
 struct GuitarBuddyApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootTabView()
         }
         .modelContainer(for: SongSpeedPreference.self)
     }
