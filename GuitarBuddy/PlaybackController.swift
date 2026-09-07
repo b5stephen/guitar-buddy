@@ -20,9 +20,9 @@ final class PlaybackController {
     private let playerBox = MusicPlayerBox(player: ApplicationMusicPlayer.shared)
     private var modelContext: ModelContext?
 
-    /// True while `loadPreference(for:)` is writing `playbackRate`, so the
+    /// True while `loadSavedSpeed(for:)` is writing `playbackRate`, so the
     /// `didSet` doesn't poke the player with a rate mid-load.
-    private var isLoadingPreference = false
+    private var isLoadingSavedSpeed = false
 
     var selectedSong: Song?
     /// Read straight off the player rather than mirrored into a stored
@@ -52,7 +52,7 @@ final class PlaybackController {
 
     var playbackRate: Double = 1.0 {
         didSet {
-            guard !isLoadingPreference else { return }
+            guard !isLoadingSavedSpeed else { return }
             // Only push the rate while playing: assigning `playbackRate` on a
             // paused player makes it start, so a paused song would jump to life
             // just because the user turned the speed dial.
@@ -145,11 +145,12 @@ final class PlaybackController {
 
     // MARK: - Playback
 
-    /// Queues a song at its saved speed and stops there. Choosing a track is
-    /// not the same as wanting it to start — the user hits play when they've
-    /// got the guitar in their hands.
-    func load(song: Song) async {
-        loadPreference(for: song)
+    /// Picks a song to practice: queues it at its saved speed and stops there.
+    /// Choosing a track is not the same as wanting it to start — the user hits
+    /// play when they've got the guitar in their hands.
+    func select(song: Song) async {
+        selectedSong = song
+        loadSavedSpeed(for: song)
         errorMessage = nil
         rateWarning = nil
         playbackTime = 0
@@ -161,6 +162,25 @@ final class PlaybackController {
             try await playerBox.prepareToPlay()
         } catch {
             errorMessage = "Couldn't load that track: \(error.localizedDescription)"
+        }
+    }
+
+    /// Picks a song from the saved list, which stores only its ID. Returns
+    /// whether the song was found: a saved song can outlive its place in the
+    /// library, and the caller needs to know not to send the user to a practice
+    /// screen still showing the previous track.
+    @discardableResult
+    func select(savedID: String) async -> Bool {
+        do {
+            guard let song = try await SongLookup.song(withID: savedID) else {
+                errorMessage = "That song isn't in your library or on Apple Music any more."
+                return false
+            }
+            await select(song: song)
+            return true
+        } catch {
+            errorMessage = "Couldn't find that song: \(error.localizedDescription)"
+            return false
         }
     }
 
@@ -201,50 +221,27 @@ final class PlaybackController {
 
     // MARK: - Persistence
 
-    /// Loads a saved speed for this song, if one exists, falling back to 100%.
-    private func loadPreference(for song: Song) {
-        isLoadingPreference = true
-        defer { isLoadingPreference = false }
+    /// Loads the saved speed for this song, if it's on the saved list, falling
+    /// back to 100%.
+    private func loadSavedSpeed(for song: Song) {
+        isLoadingSavedSpeed = true
+        defer { isLoadingSavedSpeed = false }
 
         guard let modelContext else {
             playbackRate = 1.0
             return
         }
-        let songID = song.id.rawValue
-        let descriptor = FetchDescriptor<SongSpeedPreference>(
-            predicate: #Predicate { $0.songID == songID }
-        )
-        if let existing = try? modelContext.fetch(descriptor).first {
-            playbackRate = existing.speed
-        } else {
-            playbackRate = 1.0
-        }
+        playbackRate = SavedSong.find(songID: song.id.rawValue, in: modelContext)?.speed ?? 1.0
     }
 
-    /// Upserts the current speed for the current song. Deliberately *not*
-    /// called from `playbackRate`'s `didSet` — speeds are only persisted when
-    /// the user explicitly saves a song, so the store stays a curated list
-    /// rather than a log of everything ever played.
-    func saveCurrentSpeed() {
+    /// Adds the current song to the saved list at the current speed, or updates
+    /// it if it's already there. Deliberately *not* called from `playbackRate`'s
+    /// `didSet` — speeds are only persisted when the user explicitly saves a
+    /// song, so the list stays curated rather than a log of everything ever
+    /// played.
+    func saveCurrentSong() {
         guard let modelContext, let song = selectedSong else { return }
-        let songID = song.id.rawValue
-        let descriptor = FetchDescriptor<SongSpeedPreference>(
-            predicate: #Predicate { $0.songID == songID }
-        )
-        if let existing = try? modelContext.fetch(descriptor).first {
-            existing.speed = playbackRate
-            existing.lastUsed = .now
-        } else {
-            modelContext.insert(
-                SongSpeedPreference(
-                    songID: songID,
-                    speed: playbackRate,
-                    title: song.title,
-                    artistName: song.artistName
-                )
-            )
-        }
-        try? modelContext.save()
+        SavedSong.save(song: song, speed: playbackRate, in: modelContext)
     }
 }
 

@@ -15,8 +15,11 @@ import MusicKit
 import SwiftUI
 
 struct SongPickerView: View {
-    /// Set when the user taps a row; the sheet dismisses itself afterwards.
-    @Binding var selection: Song?
+    /// Called with the song the user taps; the sheet dismisses itself
+    /// afterwards. A closure rather than a binding because callers do different
+    /// things with the result — the practice screen plays it, the saved list
+    /// saves it.
+    let onSelect: (Song) -> Void
 
     @Environment(\.dismiss) private var dismiss
 
@@ -45,7 +48,7 @@ struct SongPickerView: View {
                     // No term yet, so there's nothing to search — offer the
                     // library itself instead of an empty "type something" page.
                     LibraryBrowseView { song in
-                        selection = song
+                        onSelect(song)
                         dismiss()
                     }
                 } else if results.isEmpty {
@@ -63,7 +66,7 @@ struct SongPickerView: View {
                 } else {
                     List(results) { song in
                         Button {
-                            selection = song
+                            onSelect(song)
                             dismiss()
                         } label: {
                             SongRow(song: song)

@@ -8,9 +8,12 @@ import SwiftData
 import SwiftUI
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
+    /// Owned by `RootTabView`, since the saved list drives it too. `@Bindable`
+    /// rather than `let` so the speed wheel can still bind to `playbackRate`.
+    @Bindable var controller: PlaybackController
+
     @Environment(\.scenePhase) private var scenePhase
-    @State private var controller = PlaybackController()
+    @Query private var savedSongs: [SavedSong]
     @State private var showPicker = false
 
     var body: some View {
@@ -55,23 +58,17 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $showPicker) {
-            SongPickerView(selection: $controller.selectedSong)
+            SongPickerView { song in
+                Task { await controller.select(song: song) }
+            }
         }
         .task {
-            controller.configure(modelContext: modelContext)
             await controller.requestAuthorizationIfNeeded()
         }
         .onChange(of: scenePhase) { _, phase in
             // The ticker was idle while we were backgrounded, so the playhead
             // needs one read to catch up.
             if phase == .active { controller.refreshPlaybackTime() }
-        }
-        // Deliberately `onChange` rather than `task(id:)`: a task re-runs every
-        // time the view appears, so switching back from the Saved tab would
-        // re-load — and, when this called `play`, restart — the current song.
-        .onChange(of: controller.selectedSong) { _, song in
-            guard let song else { return }
-            Task { await controller.load(song: song) }
         }
     }
 
@@ -128,6 +125,9 @@ struct ContentView: View {
                     .multilineTextAlignment(.center)
                 Text(song.artistName)
                     .foregroundStyle(.secondary)
+
+                saveButton
+                    .padding(.top, 4)
             }
             .padding(.horizontal)
         } else if controller.authorizationStatus == .authorized {
@@ -143,6 +143,39 @@ struct ContentView: View {
                 description: Text(authorizationHint)
             )
         }
+    }
+
+    /// Puts the current speed on the practice list. Deliberately not a toolbar
+    /// item: this screen has no `NavigationStack`, and its layout is tuned to
+    /// fit one screen. The label names the speed so the button says what it
+    /// will do without needing a confirmation step.
+    @ViewBuilder
+    private var saveButton: some View {
+        let percent = Int((controller.playbackRate * 100).rounded())
+        let saved = savedSong
+
+        Button {
+            controller.saveCurrentSong()
+        } label: {
+            if let saved, saved.percent == percent {
+                Label("Saved at \(percent)%", systemImage: "bookmark.fill")
+            } else if saved != nil {
+                Label("Update to \(percent)%", systemImage: "bookmark.fill")
+            } else {
+                Label("Save at \(percent)%", systemImage: "bookmark")
+            }
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .disabled(saved?.percent == percent)
+    }
+
+    /// The saved entry for the song on screen, if it's on the list. Reads the
+    /// `@Query` results rather than fetching, so the button restyles itself the
+    /// moment the store changes — including from the Saved tab.
+    private var savedSong: SavedSong? {
+        guard let songID = controller.selectedSong?.id.rawValue else { return nil }
+        return savedSongs.first { $0.songID == songID }
     }
 
     @ViewBuilder
@@ -174,6 +207,6 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
-        .modelContainer(for: SongSpeedPreference.self, inMemory: true)
+    ContentView(controller: PlaybackController())
+        .modelContainer(try! AppSchema.inMemoryContainer())
 }

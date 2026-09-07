@@ -14,6 +14,6 @@ struct GuitarBuddyApp: App {
         WindowGroup {
             RootTabView()
         }
-        .modelContainer(for: SongSpeedPreference.self)
+        .modelContainer(for: AppSchema.models)
     }
 }
