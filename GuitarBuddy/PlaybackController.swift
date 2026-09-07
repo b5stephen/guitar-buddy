@@ -145,7 +145,10 @@ final class PlaybackController {
 
     // MARK: - Playback
 
-    func play(song: Song) async {
+    /// Queues a song at its saved speed and stops there. Choosing a track is
+    /// not the same as wanting it to start — the user hits play when they've
+    /// got the guitar in their hands.
+    func load(song: Song) async {
         loadPreference(for: song)
         errorMessage = nil
         rateWarning = nil
@@ -155,13 +158,9 @@ final class PlaybackController {
             // Drilling the same eight bars two hundred times shouldn't shape the
             // user's Apple Music recommendations (iOS 26.4+).
             player.queue.affectsListeningHistory = false
-            try await playerBox.play()
-            // The player resets rate to 1.0 on play(), so re-apply shortly after.
-            try? await Task.sleep(for: .milliseconds(300))
-            applyRateIfPossible()
-            verifyRateStuck()
+            try await playerBox.prepareToPlay()
         } catch {
-            errorMessage = "Couldn't play that track: \(error.localizedDescription)"
+            errorMessage = "Couldn't load that track: \(error.localizedDescription)"
         }
     }
 
@@ -259,5 +258,9 @@ nonisolated private struct MusicPlayerBox: @unchecked Sendable {
 
     nonisolated func play() async throws {
         try await player.play()
+    }
+
+    nonisolated func prepareToPlay() async throws {
+        try await player.prepareToPlay()
     }
 }

@@ -66,10 +66,12 @@ struct ContentView: View {
             // needs one read to catch up.
             if phase == .active { controller.refreshPlaybackTime() }
         }
-        .task(id: controller.selectedSong) {
-            if let song = controller.selectedSong {
-                await controller.play(song: song)
-            }
+        // Deliberately `onChange` rather than `task(id:)`: a task re-runs every
+        // time the view appears, so switching back from the Saved tab would
+        // re-load — and, when this called `play`, restart — the current song.
+        .onChange(of: controller.selectedSong) { _, song in
+            guard let song else { return }
+            Task { await controller.load(song: song) }
         }
     }
 
