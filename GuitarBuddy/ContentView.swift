@@ -62,8 +62,9 @@ struct ContentView: View {
             await controller.requestAuthorizationIfNeeded()
         }
         .onChange(of: scenePhase) { _, phase in
-            // Transport may have moved while we were backgrounded.
-            if phase == .active { controller.syncPlaybackState() }
+            // The ticker was idle while we were backgrounded, so the playhead
+            // needs one read to catch up.
+            if phase == .active { controller.refreshPlaybackTime() }
         }
         .task(id: controller.selectedSong) {
             if let song = controller.selectedSong {

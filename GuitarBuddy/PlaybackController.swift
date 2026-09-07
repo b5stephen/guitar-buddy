@@ -3,7 +3,6 @@
 //  GuitarBuddy
 //
 
-import Combine
 import Foundation
 import MusicKit
 import Observation
@@ -26,14 +25,14 @@ final class PlaybackController {
     private var isLoadingPreference = false
 
     var selectedSong: Song?
-    /// Mirrors `player.state.playbackStatus`, so the UI stays correct when
-    /// playback is started or stopped from outside the app (Control Centre,
-    /// headphones, another app taking the queue, or a track simply ending).
-    private(set) var isPlaying = false
+    /// Read straight off the player rather than mirrored into a stored
+    /// property. `MusicPlayer.State` is `Observable` as of iOS 26.4, so a view
+    /// touching this in its body tracks the player directly and stays correct
+    /// when playback is started or stopped from outside the app (Control
+    /// Centre, headphones, another app taking the queue, or a track ending).
+    var isPlaying: Bool { player.state.playbackStatus == .playing }
     var authorizationStatus: MusicAuthorization.Status = MusicAuthorization.currentStatus
 
-    /// Watches the shared player so `isPlaying` never drifts from reality.
-    private var stateObservation: Task<Void, Never>?
     /// Drives `playbackTime`. MusicKit publishes no change signal for the
     /// playhead, so the only way to follow it is to keep asking.
     private var tickObservation: Task<Void, Never>?
@@ -74,29 +73,14 @@ final class PlaybackController {
     /// kept out of `init` so this class stays easy to preview.
     func configure(modelContext: ModelContext) {
         self.modelContext = modelContext
-        startObservingPlayerState()
-    }
-
-    /// `MusicPlayerState` is an `ObservableObject`; its `objectWillChange` is
-    /// the only signal MusicKit gives for externally-driven transport changes.
-    private func startObservingPlayerState() {
-        guard stateObservation == nil else { return }
-        syncPlaybackState()
+        readPlaybackTime()
         startTicking()
-        let state = player.state
-        stateObservation = Task { [weak self] in
-            for await _ in state.objectWillChange.values {
-                // "willChange" — let the new value land before reading it.
-                try? await Task.sleep(for: .milliseconds(30))
-                guard let self else { return }
-                self.syncPlaybackState()
-            }
-        }
     }
 
-    /// Pulls the truth back out of the player.
-    func syncPlaybackState() {
-        isPlaying = player.state.playbackStatus == .playing
+    /// Re-reads the playhead. Only needed where the ticker can't have kept up —
+    /// coming back from the background. `isPlaying` needs no such nudge; it
+    /// reads the observable player state on demand.
+    func refreshPlaybackTime() {
         readPlaybackTime()
     }
 
@@ -168,14 +152,15 @@ final class PlaybackController {
         playbackTime = 0
         do {
             player.queue = [song]
+            // Drilling the same eight bars two hundred times shouldn't shape the
+            // user's Apple Music recommendations (iOS 26.4+).
+            player.queue.affectsListeningHistory = false
             try await playerBox.play()
-            syncPlaybackState()
             // The player resets rate to 1.0 on play(), so re-apply shortly after.
             try? await Task.sleep(for: .milliseconds(300))
             applyRateIfPossible()
             verifyRateStuck()
         } catch {
-            syncPlaybackState()
             errorMessage = "Couldn't play that track: \(error.localizedDescription)"
         }
     }
@@ -183,17 +168,14 @@ final class PlaybackController {
     func togglePlayPause() {
         if isPlaying {
             player.pause()
-            syncPlaybackState()
         } else {
             Task {
                 do {
                     try await playerBox.play()
-                    syncPlaybackState()
                     try? await Task.sleep(for: .milliseconds(300))
                     applyRateIfPossible()
                     verifyRateStuck()
                 } catch {
-                    syncPlaybackState()
                     errorMessage = "Couldn't resume: \(error.localizedDescription)"
                 }
             }

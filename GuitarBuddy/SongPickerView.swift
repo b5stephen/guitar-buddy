@@ -3,11 +3,12 @@
 //  GuitarBuddy
 //
 //  NOTE: The project brief calls for the `.musicPicker` SwiftUI modifier, which
-//  is not present in the iOS 26.2 SDK this project builds against (nothing
-//  named `musicPicker` exists in MusicKit or its SwiftUI overlay). This view
-//  stands in for it: one sheet that searches both the Apple Music catalog and
-//  the user's personal library. Swap it out for `.musicPicker` if and when the
-//  modifier ships — `ContentView` only needs a `Song?` back either way.
+//  still doesn't exist in the iOS 26.5 SDK this project builds against (nothing
+//  named `musicPicker` appears anywhere in MusicKit, and MusicKit ships no
+//  SwiftUI views beyond `ArtworkImage`). This view stands in for it: one sheet
+//  that searches the Apple Music catalog and both searches *and* browses the
+//  user's own library. Swap it out for `.musicPicker` if and when the modifier
+//  ships — `ContentView` only needs a `Song?` back either way.
 //
 
 import MusicKit
@@ -40,6 +41,13 @@ struct SongPickerView: View {
                         systemImage: "exclamationmark.triangle",
                         description: Text(searchError)
                     )
+                } else if searchTerm.isEmpty, scope == .library {
+                    // No term yet, so there's nothing to search — offer the
+                    // library itself instead of an empty "type something" page.
+                    LibraryBrowseView { song in
+                        selection = song
+                        dismiss()
+                    }
                 } else if results.isEmpty {
                     ContentUnavailableView.search(text: searchTerm)
                         .opacity(searchTerm.isEmpty ? 0 : 1)
@@ -48,7 +56,7 @@ struct SongPickerView: View {
                                 ContentUnavailableView(
                                     "Find a song",
                                     systemImage: "magnifyingglass",
-                                    description: Text("Search \(scope.rawValue) for something to practice.")
+                                    description: Text("Search Apple Music for something to practice.")
                                 )
                             }
                         }
@@ -133,7 +141,8 @@ struct SongPickerView: View {
     }
 }
 
-private struct SongRow: View {
+/// Shared with `LibraryBrowseView`, which lists songs the same way.
+struct SongRow: View {
     let song: Song
 
     var body: some View {
