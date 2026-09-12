@@ -110,7 +110,7 @@ struct PlaybackScrubber: View {
     }
 
     /// `m:ss`, growing to `h:mm:ss` only when a track actually runs that long.
-    static func timeLabel(_ seconds: TimeInterval) -> String {
+    nonisolated static func timeLabel(_ seconds: TimeInterval) -> String {
         let total = Int(seconds.rounded(.down))
         let (h, m, s) = (total / 3600, (total % 3600) / 60, total % 60)
         return h > 0

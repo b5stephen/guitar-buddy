@@ -13,8 +13,25 @@ struct ContentView: View {
     @Bindable var controller: PlaybackController
 
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.modelContext) private var modelContext
     @Query private var savedSongs: [SavedSong]
     @State private var showPicker = false
+    @State private var markerSheet: MarkerSheet?
+
+    /// What the marker sheet is open for. `Identifiable` so `.sheet(item:)`
+    /// can drive it; editing gets the marker's own identity so switching
+    /// straight from one marker to another rebuilds the sheet.
+    private enum MarkerSheet: Identifiable {
+        case new(start: TimeInterval)
+        case edit(SongMarker)
+
+        var id: String {
+            switch self {
+            case .new: "new"
+            case .edit(let marker): "edit-\(marker.persistentModelID.hashValue)"
+            }
+        }
+    }
 
     var body: some View {
         // The content is short enough to fit on most screens, so it sits
@@ -49,6 +66,8 @@ struct ContentView: View {
                         .padding(.horizontal, 32)
 
                         transportControls
+
+                        markerList
                     }
 
                     messages
@@ -60,6 +79,27 @@ struct ContentView: View {
         .sheet(isPresented: $showPicker) {
             SongPickerView { song in
                 Task { await controller.select(song: song) }
+            }
+        }
+        .sheet(item: $markerSheet) { sheet in
+            if let duration = controller.duration {
+                switch sheet {
+                case .new(let start):
+                    MarkerEditorView(
+                        initialStart: start,
+                        duration: duration,
+                        controller: controller,
+                        onSave: addMarker
+                    )
+                case .edit(let marker):
+                    MarkerEditorView(
+                        marker: marker,
+                        duration: duration,
+                        controller: controller,
+                        onSave: { name, start, end in update(marker, name: name, start: start, end: end) },
+                        onDelete: { delete(marker) }
+                    )
+                }
             }
         }
         .task {
@@ -96,11 +136,91 @@ struct ContentView: View {
                 controller.skip(by: 10)
             }
 
-            // Balances the restart button on the left so play/pause sits dead
-            // centre rather than drifting right.
-            transportButton("gobackward", label: "") {}
-                .hidden()
+            // Sits opposite restart so play/pause stays dead centre.
+            transportButton("flag", label: "Mark this point") {
+                markerSheet = .new(start: controller.pauseForMarking())
+            }
+            .disabled(controller.duration == nil)
         }
+    }
+
+    // MARK: - Markers
+
+    /// The song's points and clips, in track order. Tap one to jump there;
+    /// long-press for edit and delete.
+    @ViewBuilder
+    private var markerList: some View {
+        if let saved = savedSong, !saved.markers.isEmpty {
+            VStack(spacing: 0) {
+                ForEach(saved.sortedMarkers) { marker in
+                    markerRow(marker)
+                    if marker.persistentModelID != saved.sortedMarkers.last?.persistentModelID {
+                        Divider().padding(.leading, 46)
+                    }
+                }
+            }
+            .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: 12))
+            .padding(.horizontal)
+        }
+    }
+
+    private func markerRow(_ marker: SongMarker) -> some View {
+        HStack {
+            MarkerLabel(marker: marker)
+            Spacer(minLength: 8)
+            if marker.isClip {
+                let looping = controller.isLooping(marker)
+                Button {
+                    controller.toggleLoop(for: marker)
+                } label: {
+                    Image(systemName: "repeat")
+                        .font(.body.weight(looping ? .bold : .regular))
+                        .padding(6)
+                        .background(looping ? AnyShapeStyle(.tint.opacity(0.2)) : AnyShapeStyle(.clear), in: .circle)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(looping ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                .accessibilityLabel(looping ? "Stop looping" : "Loop this clip")
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .contentShape(.rect)
+        .onTapGesture { controller.jump(to: marker) }
+        .contextMenu {
+            Button { markerSheet = .edit(marker) } label: { Label("Edit", systemImage: "pencil") }
+            if marker.isClip {
+                Button { clearEnd(of: marker) } label: { Label("Clear End Time", systemImage: "xmark.circle") }
+            }
+            Button(role: .destructive) { delete(marker) } label: { Label("Delete", systemImage: "trash") }
+        }
+        .accessibilityAction(named: "Jump here") { controller.jump(to: marker) }
+        .accessibilityAction(named: "Edit") { markerSheet = .edit(marker) }
+        .accessibilityAction(named: "Delete") { delete(marker) }
+    }
+
+    /// Marking a song puts it on the saved list if it isn't there yet —
+    /// markers live on the saved entry, and a mark you couldn't get back to
+    /// would be no use.
+    private func addMarker(name: String, start: TimeInterval, end: TimeInterval?) {
+        guard let song = savedSong ?? controller.saveCurrentSong() else { return }
+        SongMarker.add(to: song, name: name, startTime: start, endTime: end, in: modelContext)
+    }
+
+    private func update(_ marker: SongMarker, name: String, start: TimeInterval, end: TimeInterval?) {
+        marker.set(name: name, start: start, end: end)
+        try? modelContext.save()
+        controller.markerChanged(marker)
+    }
+
+    private func clearEnd(of marker: SongMarker) {
+        marker.clearEnd(in: modelContext)
+        controller.markerChanged(marker)
+    }
+
+    private func delete(_ marker: SongMarker) {
+        controller.markerDeleted(marker)
+        SongMarker.delete(marker, in: modelContext)
     }
 
     private func transportButton(

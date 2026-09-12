@@ -26,6 +26,10 @@ final class SavedSong {
     /// Last time the user did something with this song — saved it, changed its
     /// speed, or loaded it to practice. The saved list sorts on it.
     var lastPracticed: Date = Date.now
+    /// Points and clips the user has marked in this song. Deleting the song
+    /// takes them with it.
+    @Relationship(deleteRule: .cascade, inverse: \SongMarker.song)
+    var markers: [SongMarker] = []
 
     init(
         songID: String,
@@ -124,7 +128,7 @@ extension SavedSong {
 /// tests all build their containers from this, so adding a model is a one-line
 /// edit rather than a hunt for the places that list them.
 enum AppSchema {
-    static let models: [any PersistentModel.Type] = [SavedSong.self]
+    static let models: [any PersistentModel.Type] = [SavedSong.self, SongMarker.self]
 
     /// A throwaway container for previews and tests. Nothing it holds outlives
     /// the process.

@@ -50,6 +50,22 @@ final class PlaybackController {
     /// would yank the bar back to where the user just dragged away from.
     private var lastSeek: ContinuousClock.Instant?
 
+    /// The clip being looped, if any. The ticker sends the playhead back to
+    /// `start` each time it passes `end`. A copy of the marker's times rather
+    /// than the marker itself, so a deleted marker can't leave a dangling
+    /// model object here — `markerDeleted(_:)` clears it instead.
+    private(set) var loop: ClipLoop?
+    /// Where an audition stops. Set by `audition(from:to:)` and cleared by the
+    /// ticker when the playhead gets there, or by anything the user does with
+    /// the transport in the meantime.
+    private var auditionEnd: TimeInterval?
+
+    struct ClipLoop: Equatable {
+        let markerID: PersistentIdentifier
+        let start: TimeInterval
+        let end: TimeInterval
+    }
+
     var playbackRate: Double = 1.0 {
         didSet {
             guard !isLoadingSavedSpeed else { return }
@@ -108,6 +124,13 @@ final class PlaybackController {
         let time = player.playbackTime
         // Clamp: the player can report a hair past the end as a track wraps.
         playbackTime = max(0, min(time, duration ?? time))
+
+        if let auditionEnd, playbackTime >= auditionEnd {
+            self.auditionEnd = nil
+            player.pause()
+        } else if let loop, playbackTime >= loop.end {
+            seek(to: loop.start)
+        }
     }
 
     // MARK: - Seeking
@@ -128,6 +151,7 @@ final class PlaybackController {
 
     /// Ends a scrub gesture at `time`: one seek, then the ticker takes over.
     func endScrub(at time: TimeInterval) {
+        auditionEnd = nil
         seek(to: time)
         isScrubbing = false
     }
@@ -154,6 +178,8 @@ final class PlaybackController {
         errorMessage = nil
         rateWarning = nil
         playbackTime = 0
+        loop = nil
+        auditionEnd = nil
         do {
             player.queue = [song]
             // Drilling the same eight bars two hundred times shouldn't shape the
@@ -185,20 +211,94 @@ final class PlaybackController {
     }
 
     func togglePlayPause() {
+        auditionEnd = nil
         if isPlaying {
             player.pause()
         } else {
-            Task {
-                do {
-                    try await playerBox.play()
-                    try? await Task.sleep(for: .milliseconds(300))
-                    applyRateIfPossible()
-                    verifyRateStuck()
-                } catch {
-                    errorMessage = "Couldn't resume: \(error.localizedDescription)"
-                }
+            play()
+        }
+    }
+
+    private func play() {
+        Task {
+            do {
+                try await playerBox.play()
+                try? await Task.sleep(for: .milliseconds(300))
+                applyRateIfPossible()
+                verifyRateStuck()
+            } catch {
+                errorMessage = "Couldn't resume: \(error.localizedDescription)"
             }
         }
+    }
+
+    // MARK: - Markers
+
+    /// Freezes the moment the user hit the mark button: pauses so the song
+    /// doesn't run on while they name the marker, and hands back the playhead
+    /// for the editor to open at.
+    func pauseForMarking() -> TimeInterval {
+        auditionEnd = nil
+        if isPlaying { player.pause() }
+        return playbackTime
+    }
+
+    /// Plays from `start` and stops at `end` — a quick listen to check a
+    /// handle is where you meant. At the current practice speed, since that's
+    /// the speed you'll be hearing it at.
+    func audition(from start: TimeInterval, to end: TimeInterval) {
+        seek(to: start)
+        auditionEnd = end
+        play()
+    }
+
+    /// Moves the playhead to a marker's start. Doesn't start or stop playback
+    /// — same rule as choosing a song: the user hits play when they're ready.
+    ///
+    /// Looping is the user's call via the repeat toggle, so jumping never
+    /// arms it. If repeat is already on it follows the jump to the new clip;
+    /// jumping to a point, which has nothing to loop, turns it off.
+    func jump(to marker: SongMarker) {
+        auditionEnd = nil
+        if loop != nil, let end = marker.endTime {
+            loop = ClipLoop(markerID: marker.persistentModelID, start: marker.startTime, end: end)
+        } else {
+            loop = nil
+        }
+        seek(to: marker.startTime)
+    }
+
+    func isLooping(_ marker: SongMarker) -> Bool {
+        loop?.markerID == marker.persistentModelID
+    }
+
+    /// Arms or disarms a clip's loop. Arming from outside the clip moves the
+    /// playhead to its start, so the loop begins at once rather than after the
+    /// rest of the song has played through.
+    func toggleLoop(for marker: SongMarker) {
+        if isLooping(marker) {
+            loop = nil
+        } else if let end = marker.endTime {
+            loop = ClipLoop(markerID: marker.persistentModelID, start: marker.startTime, end: end)
+            if playbackTime < marker.startTime || playbackTime >= end {
+                seek(to: marker.startTime)
+            }
+        }
+    }
+
+    /// Keeps the loop in step with a marker the user just edited: new times if
+    /// it's still a clip, no loop if it's become a point.
+    func markerChanged(_ marker: SongMarker) {
+        guard isLooping(marker) else { return }
+        if let end = marker.endTime {
+            loop = ClipLoop(markerID: marker.persistentModelID, start: marker.startTime, end: end)
+        } else {
+            loop = nil
+        }
+    }
+
+    func markerDeleted(_ marker: SongMarker) {
+        if isLooping(marker) { loop = nil }
     }
 
     private func applyRateIfPossible() {
@@ -239,9 +339,10 @@ final class PlaybackController {
     /// `didSet` — speeds are only persisted when the user explicitly saves a
     /// song, so the list stays curated rather than a log of everything ever
     /// played.
-    func saveCurrentSong() {
-        guard let modelContext, let song = selectedSong else { return }
-        SavedSong.save(song: song, speed: playbackRate, in: modelContext)
+    @discardableResult
+    func saveCurrentSong() -> SavedSong? {
+        guard let modelContext, let song = selectedSong else { return nil }
+        return SavedSong.save(song: song, speed: playbackRate, in: modelContext)
     }
 }
 

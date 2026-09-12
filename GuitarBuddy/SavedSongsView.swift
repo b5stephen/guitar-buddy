@@ -46,15 +46,38 @@ struct SavedSongsView: View {
                     }
                 } else {
                     List {
+                        // A section per song so its markers sit under it as
+                        // rows of their own, each with its own swipe-to-delete.
                         ForEach(songs) { song in
-                            SavedSongRow(
-                                song: song,
-                                isLoading: loadingID == song.songID,
-                                onPlay: { practice(song) },
-                                onEditSpeed: { editing = song }
-                            )
+                            Section {
+                                SavedSongRow(
+                                    song: song,
+                                    isLoading: loadingID == song.songID,
+                                    onPlay: { practice(song) },
+                                    onEditSpeed: { editing = song }
+                                )
+                                .swipeActions(edge: .trailing) {
+                                    Button(role: .destructive) { delete(song) } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+
+                                ForEach(song.sortedMarkers) { marker in
+                                    MarkerLabel(marker: marker)
+                                        .padding(.leading, 60)
+                                        .contentShape(Rectangle())
+                                        .onTapGesture { practice(song, jumpingTo: marker) }
+                                        .accessibilityAction(named: "Practice from here") {
+                                            practice(song, jumpingTo: marker)
+                                        }
+                                        .swipeActions(edge: .trailing) {
+                                            Button(role: .destructive) { delete(marker) } label: {
+                                                Label("Delete", systemImage: "trash")
+                                            }
+                                        }
+                                }
+                            }
                         }
-                        .onDelete(perform: delete)
                     }
                     .listStyle(.plain)
                 }
@@ -106,7 +129,12 @@ struct SavedSongsView: View {
         }
     }
 
-    private func practice(_ song: SavedSong) {
+    /// Loads a song into the player, optionally cued up at one of its
+    /// markers. The song being on screen already is no shortcut: `select`
+    /// resets the playhead, so the jump has to come after it either way.
+    /// `select` also drops any loop, so a clip opened from here starts
+    /// un-looped until the user turns repeat on.
+    private func practice(_ song: SavedSong, jumpingTo marker: SongMarker? = nil) {
         loadingID = song.songID
         Task {
             let found = await controller.select(savedID: song.songID)
@@ -117,6 +145,7 @@ struct SavedSongsView: View {
                 lookupError = controller.errorMessage
                 return
             }
+            if let marker { controller.jump(to: marker) }
             SavedSong.touch(song, in: modelContext)
             onPractice()
         }
@@ -131,11 +160,15 @@ struct SavedSongsView: View {
         }
     }
 
-    private func delete(at offsets: IndexSet) {
-        for index in offsets {
-            modelContext.delete(songs[index])
-        }
+    private func delete(_ song: SavedSong) {
+        for marker in song.markers { controller.markerDeleted(marker) }
+        modelContext.delete(song)
         try? modelContext.save()
+    }
+
+    private func delete(_ marker: SongMarker) {
+        controller.markerDeleted(marker)
+        SongMarker.delete(marker, in: modelContext)
     }
 }
 
@@ -263,10 +296,12 @@ private struct SpeedEditorSheet: View {
         songID: "1", title: "Blackbird", artistName: "The Beatles",
         artworkURL: nil, speed: 0.75, in: context
     )
-    SavedSong.save(
+    let littleWing = SavedSong.save(
         songID: "2", title: "Little Wing", artistName: "Jimi Hendrix",
         artworkURL: nil, speed: 0.6, in: context
     )
+    SongMarker.add(to: littleWing, name: "Intro", startTime: 0, endTime: 22, in: context)
+    SongMarker.add(to: littleWing, name: "", startTime: 95.5, endTime: nil, in: context)
     SavedSong.save(
         songID: "3", title: "Nothing Else Matters", artistName: "Metallica",
         artworkURL: nil, speed: 1.0, in: context
