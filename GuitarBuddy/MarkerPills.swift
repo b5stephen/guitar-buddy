@@ -23,10 +23,21 @@ struct MarkerPills: View {
     /// Leading and trailing inset, to line the row up with whatever it sits
     /// under. The row still scrolls edge to edge.
     var inset: CGFloat = 32
-    /// Whether this clip's loop is armed, so the pill can show it running.
+    /// Overrides the leading inset, for a row that follows something pinned
+    /// outside it and needs only a gap rather than the full margin.
+    var leadingInset: CGFloat?
+    /// Whether this clip is in the running loop's scope, so the pill can show
+    /// it lit.
     var isLooping: (SongMarker) -> Bool = { _ in false }
-    /// Tapping a point jumps to it; tapping a clip arms or disarms its loop.
+    /// Where this clip falls in a multi-clip chain, counting from one, or
+    /// `nil` when it's the only one — a lone clip needs no number.
+    var loopOrdinal: (SongMarker) -> Int? = { _ in nil }
+    /// Tapping a point jumps to it. Tapping a clip jumps to its start too,
+    /// unless a loop is running, in which case it goes in or out of scope.
     var onTap: (SongMarker) -> Void
+    /// Loops this clip alone and starts playing it. Clips only, and absent
+    /// wherever there's no loaded song to play.
+    var onPlayLoop: ((SongMarker) -> Void)?
     var onJump: ((SongMarker) -> Void)?
     var onEdit: ((SongMarker) -> Void)?
     var onDelete: ((SongMarker) -> Void)?
@@ -41,7 +52,8 @@ struct MarkerPills: View {
             .padding(.vertical, 2)
         }
         .scrollIndicators(.hidden)
-        .contentMargins(.horizontal, inset, for: .scrollContent)
+        .contentMargins(.leading, leadingInset ?? inset, for: .scrollContent)
+        .contentMargins(.trailing, inset, for: .scrollContent)
     }
 
     private func pill(_ marker: SongMarker) -> some View {
@@ -66,6 +78,11 @@ struct MarkerPills: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
+            // First, and above Jump: it's the stronger form of the same
+            // intent, and the quickest way to drill one clip.
+            if let onPlayLoop, marker.isClip {
+                Button { onPlayLoop(marker) } label: { Label("Play on Loop", systemImage: "repeat") }
+            }
             if let onJump {
                 Button { onJump(marker) } label: { Label("Jump to Start", systemImage: "arrow.turn.down.right") }
             }
@@ -78,6 +95,9 @@ struct MarkerPills: View {
         }
         .accessibilityLabel(accessibilityLabel(marker, looping: looping))
         .accessibilityValue(marker.timeLabel)
+        .ifLet(marker.isClip ? onPlayLoop : nil) { view, playLoop in
+            view.accessibilityAction(named: "Play on loop") { playLoop(marker) }
+        }
         .ifLet(onJump) { view, jump in
             view.accessibilityAction(named: "Jump to start") { jump(marker) }
         }
@@ -97,8 +117,13 @@ struct MarkerPills: View {
     }
 
     private func glyph(_ marker: SongMarker, looping: Bool) -> String {
-        if looping { return "repeat" }
-        return marker.isClip ? "arrow.left.and.right" : "mappin"
+        guard looping else { return marker.isClip ? "arrow.left.and.right" : "mappin" }
+        // In a chain the number tells you more than the repeat symbol does:
+        // the filled pill already says it's looping, the numeral says when.
+        if let position = loopOrdinal(marker), (1...50).contains(position) {
+            return "\(position).circle.fill"
+        }
+        return "repeat"
     }
 
     private func background(_ marker: SongMarker, looping: Bool) -> AnyShapeStyle {
@@ -109,8 +134,10 @@ struct MarkerPills: View {
     }
 
     private func accessibilityLabel(_ marker: SongMarker, looping: Bool) -> String {
-        let kind = marker.isClip ? (looping ? "clip, looping" : "clip") : "marker"
-        return "\(marker.name), \(kind)"
+        guard marker.isClip else { return "\(marker.name), marker" }
+        guard looping else { return "\(marker.name), clip" }
+        guard let position = loopOrdinal(marker) else { return "\(marker.name), clip, looping" }
+        return "\(marker.name), clip, looping, \(position) in the loop"
     }
 }
 
@@ -144,9 +171,10 @@ private extension View {
 
         MarkerPills(
             markers: song.sortedMarkers,
-            isLooping: { $0.name == "Solo" },
-            onTap: { _ in }, onJump: { _ in }, onEdit: { _ in },
-            onDelete: { _ in }
+            isLooping: { $0.isClip },
+            loopOrdinal: { $0.name == "Verse riff" ? 1 : ($0.name == "Solo" ? 2 : nil) },
+            onTap: { _ in }, onPlayLoop: { _ in }, onJump: { _ in },
+            onEdit: { _ in }, onDelete: { _ in }
         )
     }
     .tint(.pink)

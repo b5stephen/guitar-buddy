@@ -67,7 +67,7 @@ struct ContentView: View {
                             // edges than the centred content above it.
                             .padding(.horizontal, 32)
 
-                            markerPills
+                            loopRow
                         }
 
                         transportControls
@@ -149,26 +149,85 @@ struct ContentView: View {
 
     // MARK: - Markers
 
-    /// The song's points and clips as pills under the bar. Tapping a point
-    /// jumps to it; tapping a clip arms its loop, since looping is the whole
-    /// reason to draw a clip in the first place. Long-press for the rest.
-    @ViewBuilder
-    private var markerPills: some View {
-        if let saved = savedSong, !saved.markers.isEmpty {
-            MarkerPills(
-                markers: saved.sortedMarkers,
-                isLooping: { controller.isLooping($0) },
-                onTap: { marker in
-                    if marker.isClip {
-                        controller.toggleLoop(for: marker)
-                    } else {
-                        controller.jump(to: marker)
-                    }
-                },
-                onJump: { controller.jump(to: $0) },
-                onEdit: { markerSheet = .edit($0) },
-                onDelete: { delete($0) }
-            )
+    /// The loop button and the song's markers on one row: the button is the
+    /// master switch, the pills are its scope. Putting them together is what
+    /// teaches the rule — nothing lit while the button is on means the whole
+    /// song. The button sits outside the scroll view so a long row of pills
+    /// can never push it out of reach.
+    private var loopRow: some View {
+        HStack(spacing: 8) {
+            loopButton
+
+            if let saved = savedSong, !saved.markers.isEmpty {
+                MarkerPills(
+                    markers: saved.sortedMarkers,
+                    leadingInset: 8,
+                    isLooping: { controller.isLooping($0) },
+                    loopOrdinal: { controller.loopOrdinal($0) },
+                    onTap: { tapped($0) },
+                    onPlayLoop: { controller.playOnLoop($0) },
+                    onJump: { controller.jump(to: $0) },
+                    onEdit: { markerSheet = .edit($0) },
+                    onDelete: { delete($0) }
+                )
+            } else {
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(.leading, 32)
+    }
+
+    /// Turns looping on and off — the only control that does. With the button
+    /// on and no clips lit it's the whole track, which is what you want when
+    /// you're learning a song rather than drilling a passage.
+    private var loopButton: some View {
+        Button {
+            controller.toggleLoop()
+        } label: {
+            // Built like a pill rather than as a Label, so the glyph, the
+            // weights and the paddings match the row it heads exactly.
+            HStack(spacing: 5) {
+                Image(systemName: "repeat")
+                    .font(.caption2)
+                    .symbolEffect(.pulse, isActive: controller.isLoopOn)
+                Text("Loop")
+            }
+                .font(.footnote.weight(.medium))
+                .padding(.horizontal, 11)
+                .padding(.vertical, 7)
+                .background(
+                    controller.isLoopOn ? AnyShapeStyle(.tint) : AnyShapeStyle(.quaternary),
+                    in: Capsule()
+                )
+                .foregroundStyle(controller.isLoopOn ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Loop")
+        .accessibilityValue(loopDescription)
+        .accessibilityAddTraits(controller.isLoopOn ? .isSelected : [])
+    }
+
+    /// What the loop button is currently looping, for VoiceOver — the pills
+    /// carry this visually, but they're a separate element to the button.
+    private var loopDescription: String {
+        guard let loop = controller.loop else { return "Off" }
+        let clips = loop.segments.count
+        switch clips {
+        case 0: return "Whole song"
+        case 1: return "One clip"
+        default: return "\(clips) clips"
+        }
+    }
+
+    /// A pill tap. With the loop off it's navigation, points and clips alike.
+    /// With it on, a clip goes in or out of the loop's scope instead — the
+    /// context menu's Jump to Start is there when you want to move without
+    /// reshaping a running loop.
+    private func tapped(_ marker: SongMarker) {
+        if controller.isLoopOn, marker.isClip {
+            controller.toggleLoop(for: marker)
+        } else {
+            controller.jump(to: marker)
         }
     }
 

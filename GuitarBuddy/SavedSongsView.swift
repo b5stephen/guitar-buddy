@@ -134,8 +134,8 @@ struct SavedSongsView: View {
     /// Loads a song into the player, optionally cued up at one of its
     /// markers. The song being on screen already is no shortcut: `select`
     /// resets the playhead, so the jump has to come after it either way.
-    /// `select` also drops any loop, so a clip opened from here starts
-    /// un-looped until the user turns repeat on.
+    /// `select` keeps the loop button as it was but drops its scope, so a clip
+    /// opened from here plays on rather than looping until the user lights it.
     private func practice(_ song: SavedSong, jumpingTo marker: SongMarker? = nil) {
         loadingID = song.songID
         Task {
