@@ -54,20 +54,23 @@ struct ContentView: View {
                         SpeedWheelPicker(speed: $controller.playbackRate)
                             .padding(.horizontal)
 
-                        PlaybackScrubber(
-                            position: controller.playbackTime,
-                            duration: controller.duration,
-                            onScrub: { _ in controller.isScrubbing = true },
-                            onCommit: { controller.endScrub(at: $0) }
-                        )
-                        // Wider than the usual 16pt: the bar spans the full
-                        // width, so it needs more breathing room off the edges
-                        // than the centred content above it.
-                        .padding(.horizontal, 32)
+                        VStack(spacing: 10) {
+                            PlaybackScrubber(
+                                position: controller.playbackTime,
+                                duration: controller.duration,
+                                markers: scrubberMarkers,
+                                onScrub: { _ in controller.isScrubbing = true },
+                                onCommit: { controller.endScrub(at: $0) }
+                            )
+                            // Wider than the usual 16pt: the bar spans the full
+                            // width, so it needs more breathing room off the
+                            // edges than the centred content above it.
+                            .padding(.horizontal, 32)
+
+                            markerPills
+                        }
 
                         transportControls
-
-                        markerList
                     }
 
                     messages
@@ -146,57 +149,34 @@ struct ContentView: View {
 
     // MARK: - Markers
 
-    /// The song's points and clips, in track order. Tap one to jump there;
-    /// long-press for edit and delete.
+    /// The song's points and clips as pills under the bar. Tapping a point
+    /// jumps to it; tapping a clip arms its loop, since looping is the whole
+    /// reason to draw a clip in the first place. Long-press for the rest.
     @ViewBuilder
-    private var markerList: some View {
+    private var markerPills: some View {
         if let saved = savedSong, !saved.markers.isEmpty {
-            VStack(spacing: 0) {
-                ForEach(saved.sortedMarkers) { marker in
-                    markerRow(marker)
-                    if marker.persistentModelID != saved.sortedMarkers.last?.persistentModelID {
-                        Divider().padding(.leading, 46)
+            MarkerPills(
+                markers: saved.sortedMarkers,
+                isLooping: { controller.isLooping($0) },
+                onTap: { marker in
+                    if marker.isClip {
+                        controller.toggleLoop(for: marker)
+                    } else {
+                        controller.jump(to: marker)
                     }
-                }
-            }
-            .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: 12))
-            .padding(.horizontal)
+                },
+                onJump: { controller.jump(to: $0) },
+                onEdit: { markerSheet = .edit($0) },
+                onDelete: { delete($0) }
+            )
         }
     }
 
-    private func markerRow(_ marker: SongMarker) -> some View {
-        HStack {
-            MarkerLabel(marker: marker)
-            Spacer(minLength: 8)
-            if marker.isClip {
-                let looping = controller.isLooping(marker)
-                Button {
-                    controller.toggleLoop(for: marker)
-                } label: {
-                    Image(systemName: "repeat")
-                        .font(.body.weight(looping ? .bold : .regular))
-                        .padding(6)
-                        .background(looping ? AnyShapeStyle(.tint.opacity(0.2)) : AnyShapeStyle(.clear), in: .circle)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(looping ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-                .accessibilityLabel(looping ? "Stop looping" : "Loop this clip")
-            }
+    /// The same markers, as the footprints the scrubber draws on its track.
+    private var scrubberMarkers: [PlaybackScrubber.Marker] {
+        (savedSong?.sortedMarkers ?? []).map {
+            .init(id: $0.persistentModelID, start: $0.startTime, end: $0.endTime)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .contentShape(.rect)
-        .onTapGesture { controller.jump(to: marker) }
-        .contextMenu {
-            Button { markerSheet = .edit(marker) } label: { Label("Edit", systemImage: "pencil") }
-            if marker.isClip {
-                Button { clearEnd(of: marker) } label: { Label("Clear End Time", systemImage: "xmark.circle") }
-            }
-            Button(role: .destructive) { delete(marker) } label: { Label("Delete", systemImage: "trash") }
-        }
-        .accessibilityAction(named: "Jump here") { controller.jump(to: marker) }
-        .accessibilityAction(named: "Edit") { markerSheet = .edit(marker) }
-        .accessibilityAction(named: "Delete") { delete(marker) }
     }
 
     /// Marking a song puts it on the saved list if it isn't there yet —
@@ -210,11 +190,6 @@ struct ContentView: View {
     private func update(_ marker: SongMarker, name: String, start: TimeInterval, end: TimeInterval?) {
         marker.set(name: name, start: start, end: end)
         try? modelContext.save()
-        controller.markerChanged(marker)
-    }
-
-    private func clearEnd(of marker: SongMarker) {
-        marker.clearEnd(in: modelContext)
         controller.markerChanged(marker)
     }
 

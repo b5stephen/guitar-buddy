@@ -264,30 +264,6 @@ enum PreciseTime {
     }
 }
 
-// MARK: - Row label
-
-/// A marker's kind, name and times, as both the practice screen and the
-/// saved list draw it.
-struct MarkerLabel: View {
-    let marker: SongMarker
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: marker.isClip ? "waveform" : "mappin")
-                .foregroundStyle(.tint)
-                .frame(width: 20)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(marker.name)
-                    .lineLimit(1)
-                Text(marker.timeLabel)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
 #Preview("New") {
     MarkerEditorView(initialStart: 71, duration: 245, controller: PlaybackController()) { _, _, _ in }
         .tint(.pink)

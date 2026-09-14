@@ -46,8 +46,8 @@ struct SavedSongsView: View {
                     }
                 } else {
                     List {
-                        // A section per song so its markers sit under it as
-                        // rows of their own, each with its own swipe-to-delete.
+                        // A section per song, so its pills sit in a row of
+                        // their own tucked under it.
                         ForEach(songs) { song in
                             Section {
                                 SavedSongRow(
@@ -62,19 +62,21 @@ struct SavedSongsView: View {
                                     }
                                 }
 
-                                ForEach(song.sortedMarkers) { marker in
-                                    MarkerLabel(marker: marker)
-                                        .padding(.leading, 60)
-                                        .contentShape(Rectangle())
-                                        .onTapGesture { practice(song, jumpingTo: marker) }
-                                        .accessibilityAction(named: "Practice from here") {
-                                            practice(song, jumpingTo: marker)
-                                        }
-                                        .swipeActions(edge: .trailing) {
-                                            Button(role: .destructive) { delete(marker) } label: {
-                                                Label("Delete", systemImage: "trash")
-                                            }
-                                        }
+                                if !song.markers.isEmpty {
+                                    // Inset to clear the artwork, so the pills
+                                    // hang off the title rather than the edge.
+                                    MarkerPills(
+                                        markers: song.sortedMarkers,
+                                        inset: 60,
+                                        onTap: { practice(song, jumpingTo: $0) },
+                                        onDelete: { delete($0) }
+                                    )
+                                    // The row's own insets are zero so the
+                                    // pills can scroll the full width.
+                                    .listRowInsets(EdgeInsets())
+                                    .listRowSeparator(.hidden)
+                                    .padding(.bottom, 6)
+                                    .accessibilityHint("Practice from this spot")
                                 }
                             }
                         }

@@ -20,10 +20,21 @@ struct PlaybackScrubber: View {
     let position: TimeInterval
     /// Track length. Nothing to scrub without one, so the bar goes inert.
     let duration: TimeInterval?
+    /// The song's markers, drawn on the track so the pills below have
+    /// somewhere to point at.
+    var markers: [Marker] = []
     /// Called continuously with the finger's position while dragging.
     var onScrub: (TimeInterval) -> Void = { _ in }
     /// Called once with the final position when the finger lifts.
     var onCommit: (TimeInterval) -> Void
+
+    /// A marker's footprint on the bar: a hairline for a point, a shaded
+    /// band between the two times for a clip.
+    struct Marker: Identifiable {
+        let id: AnyHashable
+        let start: TimeInterval
+        let end: TimeInterval?
+    }
 
     /// Live drag position. Non-nil only while a finger is down, and it — not
     /// `position` — is what the bar draws, so the thumb never snaps back to a
@@ -64,6 +75,7 @@ struct PlaybackScrubber: View {
                 Capsule()
                     .fill(.tint)
                     .frame(width: max(height, width * fraction))
+                markerOverlay(width: width, height: height)
             }
             .frame(height: height)
             .frame(maxHeight: .infinity)
@@ -75,6 +87,30 @@ struct PlaybackScrubber: View {
         }
         .frame(height: 44)
         .disabled(duration == nil)
+    }
+
+    /// Points and clips on the track. Drawn over the fill in a neutral ink so
+    /// they stay legible on both the played and unplayed halves of the bar.
+    @ViewBuilder
+    private func markerOverlay(width: CGFloat, height: CGFloat) -> some View {
+        if let duration, duration > 0 {
+            ForEach(markers) { marker in
+                let x = width * min(max(marker.start / duration, 0), 1)
+                if let end = marker.end {
+                    let span = width * min(max((end - marker.start) / duration, 0), 1)
+                    Capsule()
+                        .fill(.primary.opacity(0.22))
+                        .frame(width: max(2, span), height: height)
+                        .offset(x: x)
+                } else {
+                    Capsule()
+                        .fill(.primary.opacity(0.45))
+                        .frame(width: 2, height: height)
+                        .offset(x: max(0, x - 1))
+                }
+            }
+            .allowsHitTesting(false)
+        }
     }
 
     private func dragGesture(width: CGFloat) -> some Gesture {
@@ -120,7 +156,14 @@ struct PlaybackScrubber: View {
 }
 
 #Preview {
-    PlaybackScrubber(position: 71, duration: 245) { _ in }
+    PlaybackScrubber(
+        position: 71,
+        duration: 245,
+        markers: [
+            .init(id: "intro", start: 12, end: nil),
+            .init(id: "solo", start: 96, end: 128)
+        ]
+    ) { _ in }
         .tint(.pink)
         .padding()
 }
