@@ -14,6 +14,12 @@ import SwiftData
 /// the `Song` struct itself, since `Song` isn't a SwiftData-storable type. The
 /// title, artist and artwork are copied in alongside it so the saved list can
 /// be drawn without asking Apple Music for anything.
+///
+/// The artwork is kept as the `Artwork` itself (JSON-encoded), not as a URL:
+/// `ArtworkImage` can draw either a catalog or a library-only cover, and it
+/// caches and retries in a way `AsyncImage` in a `List` doesn't — a row that
+/// gets rebuilt mid-load under `AsyncImage` lands in a failure state that
+/// looks exactly like loading, and stays there.
 @Model
 final class SavedSong {
     #Unique<SavedSong>([\.songID])
@@ -22,7 +28,7 @@ final class SavedSong {
     var speed: Double = 1.0
     var title: String = ""
     var artistName: String = ""
-    var artworkURL: URL?
+    var artworkData: Data?
     /// Last time the user did something with this song — saved it, changed its
     /// speed, or loaded it to practice. The saved list sorts on it.
     var lastPracticed: Date = Date.now
@@ -36,18 +42,25 @@ final class SavedSong {
         speed: Double,
         title: String = "",
         artistName: String = "",
-        artworkURL: URL? = nil,
+        artworkData: Data? = nil,
         lastPracticed: Date = .now
     ) {
         self.songID = songID
         self.speed = speed
         self.title = title
         self.artistName = artistName
-        self.artworkURL = artworkURL
+        self.artworkData = artworkData
         self.lastPracticed = lastPracticed
     }
 
     var percent: Int { Int((speed * 100).rounded()) }
+
+    /// The cover, decoded from `artworkData`, or `nil` when the song had none
+    /// or was saved before covers were stored this way.
+    var artwork: Artwork? {
+        guard let artworkData else { return nil }
+        return try? JSONDecoder().decode(Artwork.self, from: artworkData)
+    }
 }
 
 // MARK: - Storage
@@ -65,14 +78,15 @@ extension SavedSong {
     /// Adds a song to the list, or updates the one that's already there.
     ///
     /// Takes plain values rather than a `Song` so the storage rules can be
-    /// tested — MusicKit's `Song` has no public initialiser, so a test can't
-    /// make one. `save(song:speed:in:)` below is the call the app makes.
+    /// tested — MusicKit's `Song` and `Artwork` have no public initialisers,
+    /// so a test can't make one. `save(song:speed:in:)` below is the call the
+    /// app makes.
     @discardableResult
     static func save(
         songID: String,
         title: String,
         artistName: String,
-        artworkURL: URL?,
+        artworkData: Data?,
         speed: Double,
         in context: ModelContext
     ) -> SavedSong {
@@ -84,7 +98,7 @@ extension SavedSong {
             // copy taken the first time.
             existing.title = title
             existing.artistName = artistName
-            existing.artworkURL = artworkURL
+            existing.artworkData = artworkData
             song = existing
         } else {
             song = SavedSong(
@@ -92,7 +106,7 @@ extension SavedSong {
                 speed: speed,
                 title: title,
                 artistName: artistName,
-                artworkURL: artworkURL
+                artworkData: artworkData
             )
             context.insert(song)
         }
@@ -108,8 +122,7 @@ extension SavedSong {
             songID: song.id.rawValue,
             title: song.title,
             artistName: song.artistName,
-            // 160px covers a 48pt row at @3x.
-            artworkURL: song.artwork?.url(width: 160, height: 160),
+            artworkData: song.artwork.flatMap { try? JSONEncoder().encode($0) },
             speed: speed,
             in: context
         )

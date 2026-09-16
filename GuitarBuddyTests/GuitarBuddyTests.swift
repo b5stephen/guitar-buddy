@@ -33,14 +33,14 @@ struct SavedSongTests {
         _ songID: String,
         title: String = "Blackbird",
         artist: String = "The Beatles",
-        artworkURL: URL? = nil,
+        artworkData: Data? = nil,
         speed: Double = 1.0
     ) -> SavedSong {
         SavedSong.save(
             songID: songID,
             title: title,
             artistName: artist,
-            artworkURL: artworkURL,
+            artworkData: artworkData,
             speed: speed,
             in: context
         )
@@ -48,15 +48,15 @@ struct SavedSongTests {
 
     @Test("Saving a new song stores every field")
     func savesNewSong() throws {
-        let url = URL(string: "https://example.com/art.jpg")!
-        save("i.1", title: "Little Wing", artist: "Jimi Hendrix", artworkURL: url, speed: 0.6)
+        let art = Data("cover".utf8)
+        save("i.1", title: "Little Wing", artist: "Jimi Hendrix", artworkData: art, speed: 0.6)
 
         let songs = try allSongs()
         #expect(songs.count == 1)
         #expect(songs[0].songID == "i.1")
         #expect(songs[0].title == "Little Wing")
         #expect(songs[0].artistName == "Jimi Hendrix")
-        #expect(songs[0].artworkURL == url)
+        #expect(songs[0].artworkData == art)
         #expect(songs[0].speed == 0.6)
     }
 
@@ -72,15 +72,15 @@ struct SavedSongTests {
 
     @Test("Re-saving refreshes metadata that has gone stale")
     func reSaveRefreshesMetadata() throws {
-        let old = URL(string: "https://example.com/old.jpg")!
-        let new = URL(string: "https://example.com/new.jpg")!
-        save("i.1", title: "Blackbrid", artist: "Beatles", artworkURL: old)
-        save("i.1", title: "Blackbird", artist: "The Beatles", artworkURL: new)
+        let old = Data("old".utf8)
+        let new = Data("new".utf8)
+        save("i.1", title: "Blackbrid", artist: "Beatles", artworkData: old)
+        save("i.1", title: "Blackbird", artist: "The Beatles", artworkData: new)
 
         let song = try #require(SavedSong.find(songID: "i.1", in: context))
         #expect(song.title == "Blackbird")
         #expect(song.artistName == "The Beatles")
-        #expect(song.artworkURL == new)
+        #expect(song.artworkData == new)
     }
 
     /// The rule behind `SavedSongsView.add`: re-adding a song the user has

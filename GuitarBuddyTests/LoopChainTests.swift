@@ -22,7 +22,7 @@ struct LoopChainTests {
         context = ModelContext(try AppSchema.inMemoryContainer())
         song = SavedSong.save(
             songID: "i.1", title: "Little Wing", artistName: "Jimi Hendrix",
-            artworkURL: nil, speed: 0.6, in: context
+            artworkData: nil, speed: 0.6, in: context
         )
     }
 

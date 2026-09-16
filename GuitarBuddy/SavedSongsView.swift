@@ -223,14 +223,9 @@ private struct SavedSongRow: View {
     private var artwork: some View {
         if isLoading {
             placeholder { ProgressView() }
-        } else if let url = song.artworkURL {
-            AsyncImage(url: url) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                placeholder { ProgressView() }
-            }
-            .frame(width: 48, height: 48)
-            .clipShape(.rect(cornerRadius: 6))
+        } else if let artwork = song.artwork {
+            ArtworkImage(artwork, width: 48, height: 48)
+                .clipShape(.rect(cornerRadius: 6))
         } else {
             placeholder { Image(systemName: "music.note").foregroundStyle(.secondary) }
         }
@@ -296,17 +291,17 @@ private struct SpeedEditorSheet: View {
     let context = ModelContext(container)
     SavedSong.save(
         songID: "1", title: "Blackbird", artistName: "The Beatles",
-        artworkURL: nil, speed: 0.75, in: context
+        artworkData: nil, speed: 0.75, in: context
     )
     let littleWing = SavedSong.save(
         songID: "2", title: "Little Wing", artistName: "Jimi Hendrix",
-        artworkURL: nil, speed: 0.6, in: context
+        artworkData: nil, speed: 0.6, in: context
     )
     SongMarker.add(to: littleWing, name: "Intro", startTime: 0, endTime: 22, in: context)
     SongMarker.add(to: littleWing, name: "", startTime: 95.5, endTime: nil, in: context)
     SavedSong.save(
         songID: "3", title: "Nothing Else Matters", artistName: "Metallica",
-        artworkURL: nil, speed: 1.0, in: context
+        artworkData: nil, speed: 1.0, in: context
     )
 
     return SavedSongsView(controller: PlaybackController()) {}
