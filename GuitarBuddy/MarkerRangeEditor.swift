@@ -8,6 +8,11 @@ import SwiftUI
 import UIKit
 #endif
 
+/// One of a marker's two draggable times.
+enum MarkerHandle {
+    case start, end
+}
+
 /// A big, zoomable strip of the track with a drag handle for a marker's start
 /// and, when it has one, its end.
 ///
@@ -25,6 +30,9 @@ struct MarkerRangeEditor: View {
     /// Drawn as a thin line so the user can see where the song is relative to
     /// the handles after an audition.
     let playhead: TimeInterval
+    /// Reports which handle a drag took hold of, so the editor can point its
+    /// nudge controls at the same time.
+    var onGrab: (MarkerHandle) -> Void = { _ in }
 
     enum Zoom: String, CaseIterable, Identifiable {
         case whole = "Song", thirty = "30s", five = "5s"
@@ -68,11 +76,20 @@ struct MarkerRangeEditor: View {
     }
 
     var body: some View {
-        VStack(spacing: 10) {
-            Picker("Zoom", selection: $zoom) {
-                ForEach(Zoom.allCases) { Text($0.rawValue).tag($0) }
+        VStack(spacing: 12) {
+            HStack {
+                // What the strip is showing, so a zoomed window isn't a
+                // mystery stretch of the song.
+                Text("\(PlaybackScrubber.timeLabel(window.lowerBound)) – \(PlaybackScrubber.timeLabel(window.upperBound))")
+                    .font(.footnote.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Picker("Zoom", selection: $zoom) {
+                    ForEach(Zoom.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 150)
             }
-            .pickerStyle(.segmented)
 
             strip
                 .frame(height: Self.barHeight + Self.labelHeight + 8)
@@ -206,7 +223,13 @@ struct MarkerRangeEditor: View {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
                 if drag == nil {
-                    drag = pick(atX: value.startLocation.x, width: width)
+                    let picked = pick(atX: value.startLocation.x, width: width)
+                    drag = picked
+                    switch picked {
+                    case .start: onGrab(.start)
+                    case .end: onGrab(.end)
+                    default: break
+                    }
                     #if canImport(UIKit)
                     UIImpactFeedbackGenerator(style: .soft).impactOccurred()
                     #endif

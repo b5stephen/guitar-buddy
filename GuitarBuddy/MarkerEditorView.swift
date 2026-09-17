@@ -3,6 +3,7 @@
 //  GuitarBuddy
 //
 
+import SwiftData
 import SwiftUI
 
 /// The sheet for placing or adjusting a marker: a name, a start time, an
@@ -24,6 +25,8 @@ struct MarkerEditorView: View {
     @State private var start: TimeInterval
     @State private var end: TimeInterval?
     @State private var confirmingDelete = false
+    /// Which time the nudge row and Now act on.
+    @State private var selected: MarkerHandle = .start
 
     /// How much of the track an audition plays either side of a handle.
     private static let auditionLength: TimeInterval = 2
@@ -46,73 +49,105 @@ struct MarkerEditorView: View {
         _name = State(initialValue: marker?.name ?? "")
         _start = State(initialValue: marker?.startTime ?? initialStart)
         _end = State(initialValue: marker?.endTime)
+        _selected = State(initialValue: marker?.endTime == nil ? .start : .end)
     }
 
     private var isEditing: Bool { marker != nil }
     private var canAddEnd: Bool { start + SongMarker.minimumClipLength <= duration }
 
+    private enum Kind: Hashable {
+        case point, clip
+    }
+
+    /// Point or clip, as a switch. Going to clip gives the marker a short end
+    /// to drag from; going back to point drops it.
+    private var kind: Binding<Kind> {
+        Binding(
+            get: { end == nil ? .point : .clip },
+            set: { newKind in
+                withAnimation {
+                    switch newKind {
+                    case .point:
+                        end = nil
+                        selected = .start
+                    case .clip:
+                        end = min(duration, start + Self.defaultClipLength)
+                        selected = .end
+                    }
+                }
+            }
+        )
+    }
+
+    /// The time the nudge row and Now act on. The end can't be selected on
+    /// a point, so it falls back to the start.
+    private var selectedTime: Binding<TimeInterval> {
+        switch selected {
+        case .end where end != nil:
+            Binding(get: { end ?? start }, set: { end = $0 })
+        default:
+            $start
+        }
+    }
+
+    private var startRange: ClosedRange<TimeInterval> {
+        0...(end.map { $0 - SongMarker.minimumClipLength } ?? duration)
+    }
+
+    private var endRange: ClosedRange<TimeInterval> {
+        (start + SongMarker.minimumClipLength)...duration
+    }
+
+    private var selectedRange: ClosedRange<TimeInterval> {
+        selected == .end && end != nil ? endRange : startRange
+    }
+
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    TextField(end == nil ? "Marker" : "Clip", text: $name)
-                        .textInputAutocapitalization(.words)
-                }
-
-                Section("Start") {
-                    TimeRow(
-                        time: $start,
-                        range: 0...(end.map { $0 - SongMarker.minimumClipLength } ?? duration),
-                        playhead: controller.playbackTime
-                    )
-                    auditionButton("Play from start", systemImage: "play.fill") {
-                        controller.audition(from: start, to: min(start + Self.auditionLength, end ?? duration))
+                    HStack(spacing: 12) {
+                        TextField(end == nil ? "Marker" : "Clip", text: $name)
+                            .textInputAutocapitalization(.words)
+                        Picker("Kind", selection: kind) {
+                            Text("Point").tag(Kind.point)
+                            Text("Clip").tag(Kind.clip)
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 150)
+                        .disabled(end == nil && !canAddEnd)
                     }
                 }
 
-                Section {
-                    if let endBinding = Binding($end) {
-                        TimeRow(
-                            time: endBinding,
-                            range: (start + SongMarker.minimumClipLength)...duration,
-                            playhead: controller.playbackTime
-                        )
-                        auditionButton("Play up to end", systemImage: "play.fill") {
-                            controller.audition(from: max(start, endBinding.wrappedValue - Self.auditionLength), to: endBinding.wrappedValue)
-                        }
-                        auditionButton("Play whole clip", systemImage: "play.circle") {
-                            controller.audition(from: start, to: endBinding.wrappedValue)
-                        }
-                        Button("Clear End Time", role: .destructive) {
-                            withAnimation { end = nil }
-                        }
-                    } else {
-                        Button {
-                            withAnimation {
-                                end = min(duration, start + Self.defaultClipLength)
-                            }
-                        } label: {
-                            Label("Add End Time", systemImage: "plus")
-                        }
-                        .disabled(!canAddEnd)
-                    }
-                } header: {
-                    Text("End")
-                } footer: {
-                    Text(end == nil
-                        ? "Add an end time to turn this point into a clip you can loop."
-                        : "Drag the handles below, or nudge the times above.")
-                }
-
+                // The strip first: it's the control that does most of the
+                // work, so it shouldn't be the one you scroll to.
                 Section {
                     MarkerRangeEditor(
                         start: $start,
                         end: $end,
                         duration: duration,
-                        playhead: controller.playbackTime
+                        playhead: controller.playbackTime,
+                        onGrab: { selected = $0 }
                     )
                     .padding(.vertical, 8)
                 }
+
+                Section {
+                    times
+                    nudgeRow
+                } footer: {
+                    if end == nil {
+                        Text(canAddEnd
+                            ? "Switch to Clip to give this an end time you can loop."
+                            : "Too close to the end of the song for a clip.")
+                    }
+                }
+
+                Section {
+                    auditionRow
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
 
                 if isEditing {
                     Section {
@@ -148,75 +183,144 @@ struct MarkerEditorView: View {
         }
     }
 
-    private func auditionButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Label(title, systemImage: systemImage)
+    /// The start and, for a clip, the end as big numerals side by side. Tap
+    /// one to make it the time the nudges act on; tap the number to type.
+    private var times: some View {
+        HStack(spacing: 0) {
+            if let endBinding = Binding($end) {
+                timeColumn("Start", time: $start, range: startRange, handle: .start)
+                Divider()
+                timeColumn("End", time: endBinding, range: endRange, handle: .end)
+            } else {
+                timeColumn("Time", time: $start, range: startRange, handle: .start)
+            }
         }
+        .padding(.vertical, 4)
     }
-}
 
-// MARK: - Time row
-
-/// One time: a typed field, a "use the playhead" button, and nudge buttons
-/// for the last bit of fine-tuning.
-private struct TimeRow: View {
-    @Binding var time: TimeInterval
-    let range: ClosedRange<TimeInterval>
-    let playhead: TimeInterval
-
-    var body: some View {
-        HStack {
-            PreciseTimeField(time: $time, range: range)
-            Spacer()
-            Button("Now") { set(playhead) }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .accessibilityLabel("Set to current position")
+    private func timeColumn(
+        _ title: String,
+        time: Binding<TimeInterval>,
+        range: ClosedRange<TimeInterval>,
+        handle: MarkerHandle
+    ) -> some View {
+        let isSelected = selected == handle || end == nil
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(handle == .start ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear))
+                    .strokeBorder(.tint, lineWidth: 2)
+                    .frame(width: 9, height: 9)
+                Text(title.uppercased())
+                    .font(.caption2.weight(.semibold))
+                    .tracking(0.4)
+            }
+            .foregroundStyle(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+            PreciseTimeField(time: time, range: range) { selected = handle }
+                .foregroundStyle(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 4)
+        .contentShape(.rect)
+        .onTapGesture { selected = handle }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
 
+    /// One row of fine adjustment for whichever time is selected: a second
+    /// and a tenth either way, and Now to snap it to the playhead.
+    private var nudgeRow: some View {
         HStack(spacing: 8) {
             nudge(-1)
             nudge(-0.1)
-            Spacer()
+            Button {
+                setSelected(controller.playbackTime)
+            } label: {
+                Label("Now", systemImage: "arrow.up.to.line")
+                    .font(.footnote.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .accessibilityLabel("Set to current position")
             nudge(0.1)
             nudge(1)
         }
-        .buttonStyle(.bordered)
         .controlSize(.small)
-        .font(.footnote.monospacedDigit())
+        .padding(.vertical, 4)
     }
 
     private func nudge(_ amount: TimeInterval) -> some View {
         Button {
-            set(time + amount)
+            setSelected(selectedTime.wrappedValue + amount)
         } label: {
             Text(amount > 0 ? "+\(PreciseTime.nudgeLabel(amount))" : "−\(PreciseTime.nudgeLabel(-amount))")
+                .font(.footnote.monospacedDigit())
                 .frame(minWidth: 44)
         }
+        .buttonStyle(.bordered)
         .accessibilityLabel(amount > 0 ? "Later by \(PreciseTime.nudgeLabel(amount))" : "Earlier by \(PreciseTime.nudgeLabel(-amount))")
     }
 
-    private func set(_ value: TimeInterval) {
-        time = max(range.lowerBound, min(value, range.upperBound))
+    private func setSelected(_ value: TimeInterval) {
+        let range = selectedRange
+        selectedTime.wrappedValue = max(range.lowerBound, min(value, range.upperBound))
+    }
+
+    /// Quick listens: a couple of seconds either side of a handle, or the
+    /// whole clip.
+    private var auditionRow: some View {
+        HStack(spacing: 8) {
+            if let end {
+                auditionButton("Start", systemImage: "play.fill") {
+                    controller.audition(from: start, to: min(start + Self.auditionLength, end))
+                }
+                auditionButton("Whole clip", systemImage: "play.fill") {
+                    controller.audition(from: start, to: end)
+                }
+                auditionButton("To end", systemImage: "play.fill") {
+                    controller.audition(from: max(start, end - Self.auditionLength), to: end)
+                }
+            } else {
+                auditionButton("Play from here", systemImage: "play.fill") {
+                    controller.audition(from: start, to: min(start + Self.auditionLength, duration))
+                }
+            }
+        }
+        .buttonStyle(.bordered)
+    }
+
+    private func auditionButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.subheadline.weight(.medium))
+                .frame(maxWidth: .infinity, minHeight: 28)
+        }
+        .accessibilityLabel(title == "Play from here" ? title : "Play \(title.lowercased())")
     }
 }
+
+// MARK: - Time field
 
 /// A text field showing `m:ss.t` that only writes back a time it could parse,
 /// and only once the user has finished typing.
 private struct PreciseTimeField: View {
     @Binding var time: TimeInterval
     let range: ClosedRange<TimeInterval>
+    /// Called when the field takes focus, so typing into a time selects it.
+    var onFocus: () -> Void = {}
 
     @State private var text = ""
     @FocusState private var focused: Bool
 
     var body: some View {
         TextField("0:00.0", text: $text)
-            .font(.title2.monospacedDigit())
+            .font(.system(size: 32, weight: .semibold, design: .rounded).monospacedDigit())
             .keyboardType(.numbersAndPunctuation)
             .focused($focused)
             .onSubmit(commit)
-            .onChange(of: focused) { if !focused { commit() } }
+            .onChange(of: focused) { focused ? onFocus() : commit() }
             .onChange(of: time, initial: true) { if !focused { text = PreciseTime.format(time) } }
             .accessibilityLabel("Time")
             .accessibilityValue(PreciseTime.format(time))
@@ -267,4 +371,14 @@ enum PreciseTime {
 #Preview("New") {
     MarkerEditorView(initialStart: 71, duration: 245, controller: PlaybackController()) { _, _, _ in }
         .tint(.pink)
+}
+
+#Preview("Edit clip") {
+    let container = try! AppSchema.inMemoryContainer()
+    let song = SavedSong(songID: "1", speed: 0.8, title: "Little Wing", artistName: "Jimi Hendrix")
+    container.mainContext.insert(song)
+    let marker = SongMarker.add(to: song, name: "Solo", startTime: 96, endTime: 112.4, in: container.mainContext)
+    return MarkerEditorView(marker: marker, duration: 245, controller: PlaybackController()) { _, _, _ in }
+        .tint(.pink)
+        .modelContainer(container)
 }
