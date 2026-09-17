@@ -211,9 +211,22 @@ final class PlaybackController {
         userSeek(to: 0)
     }
 
-    func requestAuthorizationIfNeeded() async {
-        guard authorizationStatus != .authorized else { return }
-        authorizationStatus = await MusicAuthorization.request()
+    /// Asks for Apple Music access if we haven't got it, and reports whether
+    /// we have it now. Called when the user reaches for the library — never on
+    /// launch, so the system prompt turns up with a reason attached.
+    @discardableResult
+    func requestAuthorizationIfNeeded() async -> Bool {
+        if authorizationStatus != .authorized {
+            authorizationStatus = await MusicAuthorization.request()
+        }
+        return authorizationStatus == .authorized
+    }
+
+    /// Whether there's any point offering the library. False only once the
+    /// user has said no: an undetermined status still gets a live button,
+    /// since tapping it is what brings the prompt up.
+    var canUseMusic: Bool {
+        authorizationStatus != .denied && authorizationStatus != .restricted
     }
 
     // MARK: - Playback

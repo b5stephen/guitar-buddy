@@ -37,12 +37,12 @@ struct SavedSongsView: View {
                         Text("Save a song to practice it again at the speed you left it.")
                     } actions: {
                         Button {
-                            showPicker = true
+                            chooseSong()
                         } label: {
                             Label("Add Song", systemImage: "music.note.list")
                         }
                         .buttonStyle(.borderedProminent)
-                        .disabled(controller.authorizationStatus != .authorized)
+                        .disabled(!controller.canUseMusic)
                     }
                 } else {
                     List {
@@ -88,11 +88,11 @@ struct SavedSongsView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        showPicker = true
+                        chooseSong()
                     } label: {
                         Label("Add Song", systemImage: "plus")
                     }
-                    .disabled(controller.authorizationStatus != .authorized)
+                    .disabled(!controller.canUseMusic)
                 }
             }
             .sheet(isPresented: $showPicker) {
@@ -120,6 +120,12 @@ struct SavedSongsView: View {
 
     // MARK: - Actions
 
+    /// Opens the picker, asking for Apple Music access first if we haven't got
+    /// it — the tap that needs the library is what earns the prompt.
+    private func chooseSong() {
+        Task { showPicker = await controller.requestAuthorizationIfNeeded() }
+    }
+
     /// Adds a song from the picker. A song that's already on the list keeps the
     /// speed the user tuned it to — adding it again is a way of finding it, not
     /// a request to reset it to 100%.
@@ -139,6 +145,13 @@ struct SavedSongsView: View {
     private func practice(_ song: SavedSong, jumpingTo marker: SongMarker? = nil) {
         loadingID = song.songID
         Task {
+            // Playing a saved song needs the library too, and this may be the
+            // first thing the user does after a reinstall.
+            guard await controller.requestAuthorizationIfNeeded() else {
+                loadingID = nil
+                lookupError = "Allow Apple Music access in Settings to practice this song."
+                return
+            }
             let found = await controller.select(saved: song)
             loadingID = nil
             guard found else {

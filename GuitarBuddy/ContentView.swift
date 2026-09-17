@@ -43,12 +43,14 @@ struct ContentView: View {
                     nowPlaying
 
                     Button {
-                        showPicker = true
+                        // Asking here, rather than at launch, means the system
+                        // prompt lands on the tap that needs it.
+                        Task { showPicker = await controller.requestAuthorizationIfNeeded() }
                     } label: {
                         Label("Choose Song", systemImage: "music.note.list")
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(controller.authorizationStatus != .authorized)
+                    .disabled(!controller.canUseMusic)
 
                     if controller.selectedSong != nil {
                         SpeedWheelPicker(speed: $controller.playbackRate)
@@ -104,9 +106,6 @@ struct ContentView: View {
                     )
                 }
             }
-        }
-        .task {
-            await controller.requestAuthorizationIfNeeded()
         }
         .onChange(of: scenePhase) { _, phase in
             // The ticker was idle while we were backgrounded, so the playhead
@@ -284,7 +283,7 @@ struct ContentView: View {
                     .padding(.top, 4)
             }
             .padding(.horizontal)
-        } else if controller.authorizationStatus == .authorized {
+        } else if controller.canUseMusic {
             ContentUnavailableView(
                 "No song selected",
                 systemImage: "music.note",
@@ -294,7 +293,7 @@ struct ContentView: View {
             ContentUnavailableView(
                 "Apple Music access needed",
                 systemImage: "lock",
-                description: Text(authorizationHint)
+                description: Text("Allow Apple Music access in Settings to pick and slow down songs.")
             )
         }
     }
@@ -348,15 +347,6 @@ struct ContentView: View {
         }
         .multilineTextAlignment(.center)
         .padding(.horizontal)
-    }
-
-    private var authorizationHint: String {
-        switch controller.authorizationStatus {
-        case .denied, .restricted:
-            "Allow Apple Music access in Settings to pick and slow down songs."
-        default:
-            "Guitar Buddy needs permission to use your Apple Music library."
-        }
     }
 }
 
