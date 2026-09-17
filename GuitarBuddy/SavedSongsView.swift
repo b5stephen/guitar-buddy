@@ -11,8 +11,10 @@ import SwiftUI
 /// working on it. Tapping one loads it into the practice tab at that speed.
 struct SavedSongsView: View {
     let controller: PlaybackController
-    /// Brings the practice tab forward, once a song is on its way to the player.
-    let onPractice: () -> Void
+    /// Brings the practice tab forward, once a song is on its way to the
+    /// player. `addingMarker` asks it to open the marker editor on arrival,
+    /// which is what a tap on a song's Mark pill means.
+    let onPractice: (_ addingMarker: Bool) -> Void
 
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \SavedSong.lastPracticed, order: .reverse)
@@ -45,39 +47,52 @@ struct SavedSongsView: View {
                         .disabled(!controller.canUseMusic)
                     }
                 } else {
+                    // One flat list rather than a section per song: a song and
+                    // its pills are one thing, and section gaps broke them into
+                    // two. The separator is drawn here instead, inset to the
+                    // title so it reads as a divider between songs rather than
+                    // between a song and its own markers.
                     List {
-                        // A section per song, so its pills sit in a row of
-                        // their own tucked under it.
                         ForEach(songs) { song in
-                            Section {
-                                SavedSongRow(
-                                    song: song,
-                                    isLoading: loadingID == song.songID,
-                                    onPlay: { practice(song) },
-                                    onEditSpeed: { editing = song }
-                                )
-                                .swipeActions(edge: .trailing) {
-                                    Button(role: .destructive) { delete(song) } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
+                            SavedSongRow(
+                                song: song,
+                                isLoading: loadingID == song.songID,
+                                onPlay: { practice(song) },
+                                onEditSpeed: { editing = song }
+                            )
+                            .listRowSeparator(.hidden)
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive) { delete(song) } label: {
+                                    Label("Delete", systemImage: "trash")
                                 }
+                            }
 
-                                if !song.markers.isEmpty {
-                                    // Inset to clear the artwork, so the pills
-                                    // hang off the title rather than the edge.
-                                    MarkerPills(
-                                        markers: song.sortedMarkers,
-                                        inset: 60,
-                                        onTap: { practice(song, jumpingTo: $0) },
-                                        onDelete: { delete($0) }
-                                    )
-                                    // The row's own insets are zero so the
-                                    // pills can scroll the full width.
-                                    .listRowInsets(EdgeInsets())
-                                    .listRowSeparator(.hidden)
-                                    .padding(.bottom, 6)
-                                    .accessibilityHint("Practice from this spot")
-                                }
+                            // Always drawn, even with no markers: the Mark pill
+                            // is the row's one action, and it has to sit in the
+                            // same place whether or not the song has been
+                            // marked up yet.
+                            MarkerPills(
+                                markers: song.sortedMarkers,
+                                inset: 16,
+                                leadingInset: SavedSongRow.titleInset,
+                                onTap: { practice(song, jumpingTo: $0) },
+                                onDelete: { delete($0) },
+                                onAddMarker: { practice(song, addingMarker: true) }
+                            )
+                            // The row's own insets are zero so the pills can
+                            // scroll the full width.
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                            .padding(.bottom, 10)
+                            .accessibilityHint("Practice from this spot")
+                            // Drawn rather than left to the list: a `List`
+                            // separator would sit between the song and its own
+                            // pills as well as between songs.
+                            .overlay(alignment: .bottom) {
+                                Rectangle()
+                                    .fill(.separator)
+                                    .frame(height: 0.5)
+                                    .padding(.leading, SavedSongRow.titleInset)
                             }
                         }
                     }
@@ -142,7 +157,11 @@ struct SavedSongsView: View {
     /// resets the playhead, so the jump has to come after it either way.
     /// `select` keeps the loop button as it was but drops its scope, so a clip
     /// opened from here plays on rather than looping until the user lights it.
-    private func practice(_ song: SavedSong, jumpingTo marker: SongMarker? = nil) {
+    private func practice(
+        _ song: SavedSong,
+        jumpingTo marker: SongMarker? = nil,
+        addingMarker: Bool = false
+    ) {
         loadingID = song.songID
         Task {
             // Playing a saved song needs the library too, and this may be the
@@ -162,7 +181,7 @@ struct SavedSongsView: View {
             }
             if let marker { controller.jump(to: marker) }
             SavedSong.touch(song, in: modelContext)
-            onPractice()
+            onPractice(addingMarker)
         }
     }
 
@@ -195,6 +214,11 @@ private struct SavedSongRow: View {
     let onPlay: () -> Void
     let onEditSpeed: () -> Void
 
+    /// Where the title starts, measured from the row's leading edge: the
+    /// artwork plus the gap after it. The pills and the separator under the
+    /// row line up with it.
+    static let titleInset: CGFloat = 76
+
     var body: some View {
         HStack(spacing: 12) {
             artwork
@@ -211,10 +235,13 @@ private struct SavedSongRow: View {
 
             Spacer(minLength: 8)
 
+            // Tinted rather than grey: the speed is the one thing on this list
+            // the user set themselves, and it's what they came back to change.
             Button(action: onEditSpeed) {
                 Text("\(song.percent)%")
-                    .font(.subheadline)
+                    .font(.subheadline.weight(.semibold))
                     .monospacedDigit()
+                    .foregroundStyle(.tint)
             }
             // Borderless keeps the pill's tap to itself: a plain button in a
             // `List` row would let the whole row trigger it.
@@ -222,7 +249,7 @@ private struct SavedSongRow: View {
             .buttonBorderShape(.capsule)
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
-            .background(.quaternary, in: .capsule)
+            .background(.tint.opacity(0.12), in: .capsule)
             .accessibilityLabel("Speed, \(song.percent) percent")
             .accessibilityHint("Change the practice speed")
         }
@@ -271,13 +298,22 @@ private struct SpeedEditorSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 12) {
-                Text(song.title)
-                    .font(.headline)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
+            // The wheel is sized from the sheet's width the same way the
+            // practice screen sizes it from the screen's, so it doesn't
+            // overflow a small phone.
+            GeometryReader { proxy in
+                VStack(spacing: 12) {
+                    Text(song.title)
+                        .font(.headline)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
 
-                SpeedWheelPicker(speed: $speed, diameter: 220)
+                    SpeedWheelPicker(
+                        speed: $speed,
+                        diameter: min(260, max(160, proxy.size.width - 130))
+                    )
+                }
+                .frame(maxWidth: .infinity)
             }
             .padding()
             .navigationTitle("Practice Speed")
@@ -317,11 +353,20 @@ private struct SpeedEditorSheet: View {
         artworkData: nil, speed: 1.0, in: context
     )
 
-    return SavedSongsView(controller: PlaybackController()) {}
+    return SavedSongsView(controller: PlaybackController()) { _ in }
         .modelContainer(container)
 }
 
 #Preview("Empty") {
-    SavedSongsView(controller: PlaybackController()) {}
+    SavedSongsView(controller: PlaybackController()) { _ in }
         .modelContainer(try! AppSchema.inMemoryContainer())
+}
+
+#Preview("Speed editor") {
+    let container = try! AppSchema.inMemoryContainer()
+    let song = SavedSong(songID: "1", speed: 0.75, title: "Blackbird", artistName: "The Beatles")
+    container.mainContext.insert(song)
+
+    return SpeedEditorSheet(song: song) { _ in }
+        .modelContainer(container)
 }

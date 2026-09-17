@@ -7,13 +7,13 @@ import SwiftData
 import SwiftUI
 
 /// A song's markers as a row of small pills, in track order — under the
-/// scrubber on the practice screen, under the song on the saved list. Just
-/// the names: on the practice screen the times are already drawn on the bar
-/// above, as ticks for points and shaded bands for clips.
+/// scrubber on the practice screen, under the song on the saved list.
 ///
-/// Shape carries the kind, so the two read apart at a glance and without
-/// relying on colour: a point is a round-ended capsule with a pin, a clip is
-/// a squared-off pill with a span arrow, the way a passage looks.
+/// Every pill is the same capsule, whatever it is and whatever it's doing.
+/// Kind is carried by the glyph alone — a dot for a point, a span bar for a
+/// clip — so a row of mixed markers reads as one set of objects rather than
+/// two competing ones, and the fill is left free to mean only state: idle,
+/// cued under the playhead, or lit because it's in the running loop.
 ///
 /// Everything past the tap is optional, since the saved list can't loop or
 /// edit a song that isn't loaded — a pill there just opens the song at that
@@ -29,9 +29,9 @@ struct MarkerPills: View {
     /// Whether this clip is in the running loop's scope, so the pill can show
     /// it lit.
     var isLooping: (SongMarker) -> Bool = { _ in false }
-    /// Where this clip falls in a multi-clip chain, counting from one, or
-    /// `nil` when it's the only one — a lone clip needs no number.
-    var loopOrdinal: (SongMarker) -> Int? = { _ in nil }
+    /// Whether the playhead is sitting inside this clip while the loop is off
+    /// — the clip you'd be drilling if you turned the loop on.
+    var isCued: (SongMarker) -> Bool = { _ in false }
     /// Tapping a point jumps to it. Tapping a clip jumps to its start too,
     /// unless a loop is running, in which case it goes in or out of scope.
     var onTap: (SongMarker) -> Void
@@ -41,12 +41,27 @@ struct MarkerPills: View {
     var onJump: ((SongMarker) -> Void)?
     var onEdit: ((SongMarker) -> Void)?
     var onDelete: ((SongMarker) -> Void)?
+    /// Adds a marker to this song. When it's there the row ends with a Mark
+    /// pill, so a song with no markers at all still offers the row's one
+    /// useful action in the place the markers would be.
+    var onAddMarker: (() -> Void)?
+
+    /// Scaled with the label beside it, for the same reason the span bar is.
+    @ScaledMetric(relativeTo: .footnote) private var dotSize: CGFloat = 6
+
+    /// How a pill is drawn. The kind doesn't come into it — that's the glyph.
+    private enum PillState {
+        case idle, cued, looping
+    }
 
     var body: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 ForEach(markers) { marker in
                     pill(marker)
+                }
+                if let onAddMarker {
+                    markPill(onAddMarker)
                 }
             }
             .padding(.vertical, 2)
@@ -57,24 +72,30 @@ struct MarkerPills: View {
     }
 
     private func pill(_ marker: SongMarker) -> some View {
-        let looping = isLooping(marker)
+        let state = state(of: marker)
 
         return Button {
             onTap(marker)
         } label: {
             HStack(spacing: 5) {
-                Image(systemName: glyph(marker, looping: looping))
-                    .font(.caption2)
-                    .symbolEffect(.pulse, isActive: looping)
+                glyph(marker)
+                    .opacity(state == .looping ? 0.8 : 0.55)
                 Text(marker.name)
+                    .font(.footnote.weight(.medium))
                     .lineLimit(1)
+                if let length = clipLength(marker) {
+                    Text(length)
+                        .font(.footnote.monospacedDigit())
+                        .opacity(0.6)
+                }
             }
-            .font(.footnote.weight(.medium))
             .padding(.horizontal, 11)
             .padding(.vertical, 7)
-            .background(background(marker, looping: looping), in: shape(marker))
-            .overlay(shape(marker).strokeBorder(.tint.opacity(marker.isClip && !looping ? 0.5 : 0)))
-            .foregroundStyle(looping ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+            .background(fill(state), in: Capsule())
+            // Stroked rather than bordered so joining the loop never changes
+            // the pill's size and reflows the row around it.
+            .overlay(Capsule().strokeBorder(.tint, lineWidth: state == .cued ? 1.5 : 0))
+            .foregroundStyle(foreground(state))
         }
         .buttonStyle(.plain)
         .contextMenu {
@@ -93,7 +114,7 @@ struct MarkerPills: View {
                 Button(role: .destructive) { onDelete(marker) } label: { Label("Delete", systemImage: "trash") }
             }
         }
-        .accessibilityLabel(accessibilityLabel(marker, looping: looping))
+        .accessibilityLabel(accessibilityLabel(marker, state: state))
         .accessibilityValue(marker.timeLabel)
         .ifLet(marker.isClip ? onPlayLoop : nil) { view, playLoop in
             view.accessibilityAction(named: "Play on loop") { playLoop(marker) }
@@ -109,35 +130,103 @@ struct MarkerPills: View {
         }
     }
 
-    /// Capsule for a point, rounded rect for a clip: a span has ends. Both
-    /// are rounded rects so the pill can stroke one shape — a radius past
-    /// half the pill's height rounds all the way to a capsule anyway.
-    private func shape(_ marker: SongMarker) -> RoundedRectangle {
-        RoundedRectangle(cornerRadius: marker.isClip ? 7 : 100, style: .continuous)
-    }
-
-    private func glyph(_ marker: SongMarker, looping: Bool) -> String {
-        guard looping else { return marker.isClip ? "arrow.left.and.right" : "mappin" }
-        // In a chain the number tells you more than the repeat symbol does:
-        // the filled pill already says it's looping, the numeral says when.
-        if let position = loopOrdinal(marker), (1...50).contains(position) {
-            return "\(position).circle.fill"
+    /// The row's tail. Outlined rather than filled, because it isn't a marker
+    /// — it's the invitation to make one, and it shouldn't read as an idle
+    /// pill sitting among the real ones.
+    private func markPill(_ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: "plus")
+                    .font(.system(size: 9, weight: .semibold))
+                Text("Mark")
+                    .font(.footnote.weight(.medium))
+            }
+            .padding(.horizontal, 11)
+            .padding(.vertical, 7)
+            .overlay(Capsule().strokeBorder(.tint, lineWidth: 1))
+            .foregroundStyle(.tint)
         }
-        return "repeat"
+        .buttonStyle(.plain)
+        .accessibilityLabel("Mark this point")
     }
 
-    private func background(_ marker: SongMarker, looping: Bool) -> AnyShapeStyle {
-        if looping { return AnyShapeStyle(.tint) }
-        return marker.isClip
-            ? AnyShapeStyle(.tint.opacity(0.15))
-            : AnyShapeStyle(.quaternary)
+    @ViewBuilder
+    private func glyph(_ marker: SongMarker) -> some View {
+        if marker.isClip {
+            SpanGlyph()
+        } else {
+            Circle().frame(width: dotSize, height: dotSize)
+        }
     }
 
-    private func accessibilityLabel(_ marker: SongMarker, looping: Bool) -> String {
-        guard marker.isClip else { return "\(marker.name), marker" }
-        guard looping else { return "\(marker.name), clip" }
-        guard let position = loopOrdinal(marker) else { return "\(marker.name), clip, looping" }
-        return "\(marker.name), clip, looping, \(position) in the loop"
+    /// A clip says how long it is; a point has no length to say. Seconds up to
+    /// a minute, because "45s" is the number you compare passages on, and m:ss
+    /// past that where seconds alone stop being readable.
+    private func clipLength(_ marker: SongMarker) -> String? {
+        guard let end = marker.endTime else { return nil }
+        let length = max(0, end - marker.startTime)
+        return length < 60
+            ? "\(Int(length.rounded()))s"
+            : PlaybackScrubber.timeLabel(length)
+    }
+
+    private func state(of marker: SongMarker) -> PillState {
+        if isLooping(marker) { return .looping }
+        return isCued(marker) ? .cued : .idle
+    }
+
+    private func fill(_ state: PillState) -> AnyShapeStyle {
+        switch state {
+        case .idle: AnyShapeStyle(.quaternary)
+        case .cued: AnyShapeStyle(.tint.opacity(0.14))
+        case .looping: AnyShapeStyle(.tint)
+        }
+    }
+
+    private func foreground(_ state: PillState) -> AnyShapeStyle {
+        switch state {
+        case .idle: AnyShapeStyle(.primary)
+        case .cued: AnyShapeStyle(.tint)
+        case .looping: AnyShapeStyle(.white)
+        }
+    }
+
+    private func accessibilityLabel(_ marker: SongMarker, state: PillState) -> String {
+        let kind = marker.isClip ? "clip" : "marker"
+        switch state {
+        case .idle: return "\(marker.name), \(kind)"
+        case .cued: return "\(marker.name), \(kind), at the playhead"
+        case .looping: return "\(marker.name), \(kind), looping"
+        }
+    }
+}
+
+/// The clip glyph: a rule between two uprights, the shape a passage makes on
+/// the track above. Drawn rather than borrowed from SF Symbols, none of which
+/// reads as a span at this size without also reading as an arrow.
+struct SpanGlyph: View {
+    /// Tied to the label beside it, because the glyph is now the only thing
+    /// telling a clip from a point: a 10pt mark next to accessibility-sized
+    /// type would give that difference away exactly where it's needed most.
+    @ScaledMetric(relativeTo: .footnote) private var width: CGFloat = 10
+
+    var body: some View {
+        Canvas { context, size in
+            let scale = size.width / 10
+            var path = Path()
+            path.move(to: CGPoint(x: 1 * scale, y: 1 * scale))
+            path.addLine(to: CGPoint(x: 1 * scale, y: 7 * scale))
+            path.move(to: CGPoint(x: 9 * scale, y: 1 * scale))
+            path.addLine(to: CGPoint(x: 9 * scale, y: 7 * scale))
+            path.move(to: CGPoint(x: 1 * scale, y: 4 * scale))
+            path.addLine(to: CGPoint(x: 9 * scale, y: 4 * scale))
+            context.stroke(
+                path,
+                with: .style(.foreground),
+                style: StrokeStyle(lineWidth: 1.6 * scale, lineCap: .round)
+            )
+        }
+        .frame(width: width, height: width * 0.8)
     }
 }
 
@@ -164,18 +253,25 @@ private extension View {
             position: 71,
             duration: 245,
             markers: song.sortedMarkers.map {
-                .init(id: $0.persistentModelID, start: $0.startTime, end: $0.endTime)
+                .init(
+                    id: $0.persistentModelID,
+                    start: $0.startTime,
+                    end: $0.endTime,
+                    isLooping: $0.name == "Solo"
+                )
             }
         ) { _ in }
         .padding(.horizontal, 32)
 
         MarkerPills(
             markers: song.sortedMarkers,
-            isLooping: { $0.isClip },
-            loopOrdinal: { $0.name == "Verse riff" ? 1 : ($0.name == "Solo" ? 2 : nil) },
+            isLooping: { $0.name == "Solo" },
+            isCued: { $0.name == "Verse riff" },
             onTap: { _ in }, onPlayLoop: { _ in }, onJump: { _ in },
             onEdit: { _ in }, onDelete: { _ in }
         )
+
+        MarkerPills(markers: [], onTap: { _ in }, onAddMarker: {})
     }
     .tint(.pink)
     .modelContainer(container)

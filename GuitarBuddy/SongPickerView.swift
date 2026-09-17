@@ -12,6 +12,7 @@
 //
 
 import MusicKit
+import SwiftData
 import SwiftUI
 
 struct SongPickerView: View {
@@ -39,11 +40,7 @@ struct SongPickerView: View {
         NavigationStack {
             Group {
                 if let searchError {
-                    ContentUnavailableView(
-                        "Search failed",
-                        systemImage: "exclamationmark.triangle",
-                        description: Text(searchError)
-                    )
+                    SearchMessage(kind: .failed(searchError))
                 } else if searchTerm.isEmpty, scope == .library {
                     // No term yet, so there's nothing to search — offer the
                     // library itself instead of an empty "type something" page.
@@ -51,25 +48,20 @@ struct SongPickerView: View {
                         onSelect(song)
                         dismiss()
                     }
+                } else if searchTerm.isEmpty {
+                    SearchMessage(kind: .prompt)
                 } else if results.isEmpty {
-                    ContentUnavailableView.search(text: searchTerm)
-                        .opacity(searchTerm.isEmpty ? 0 : 1)
-                        .overlay {
-                            if searchTerm.isEmpty {
-                                ContentUnavailableView(
-                                    "Find a song",
-                                    systemImage: "magnifyingglass",
-                                    description: Text("Search Apple Music for something to practice.")
-                                )
-                            }
-                        }
+                    SearchMessage(kind: .noResults(searchTerm))
                 } else {
                     List(results) { song in
                         Button {
                             onSelect(song)
                             dismiss()
                         } label: {
-                            SongRow(song: song)
+                            // The album is what tells four recordings of the
+                            // same song apart, which is most of what a search
+                            // for a well-covered song comes back with.
+                            SongRow(song: song, showsAlbum: true)
                         }
                         .buttonStyle(.plain)
                     }
@@ -144,9 +136,51 @@ struct SongPickerView: View {
     }
 }
 
+/// What the picker says when it has no list to show. All three say the same
+/// thing about the other source, since the two scopes are the sheet's only real
+/// choice and every one of these states is a reason to try the other one.
+private struct SearchMessage: View {
+    enum Kind {
+        /// The catalog before anything is typed. The library has no equivalent:
+        /// it can be browsed, so it never has to wait for a term.
+        case prompt
+        case noResults(String)
+        case failed(String)
+    }
+
+    let kind: Kind
+
+    var body: some View {
+        switch kind {
+        case .prompt:
+            ContentUnavailableView(
+                "Search Apple Music",
+                systemImage: "magnifyingglass",
+                description: Text("Or switch to My Library to browse what you already own.")
+            )
+        case .noResults(let term):
+            ContentUnavailableView(
+                "No results for \u{201C}\(term)\u{201D}",
+                systemImage: "magnifyingglass",
+                description: Text("Check the spelling, or try the other source.")
+            )
+        case .failed(let reason):
+            ContentUnavailableView(
+                "Search couldn't finish",
+                systemImage: "exclamationmark.triangle",
+                description: Text(reason)
+            )
+        }
+    }
+}
+
 /// Shared with `LibraryBrowseView`, which lists songs the same way.
 struct SongRow: View {
     let song: Song
+    /// Names the album after the artist. Off where the list is already one
+    /// album's worth of songs and saying so on every row tells the user
+    /// nothing.
+    var showsAlbum = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -164,7 +198,7 @@ struct SongRow: View {
                 Text(song.title)
                     .font(.body)
                     .lineLimit(1)
-                Text(song.artistName)
+                Text(subtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -173,4 +207,30 @@ struct SongRow: View {
         }
         .contentShape(Rectangle())
     }
+
+    private var subtitle: String {
+        guard showsAlbum, let album = song.albumTitle, !album.isEmpty else {
+            return song.artistName
+        }
+        return "\(song.artistName) — \(album)"
+    }
+}
+
+// MARK: - Previews
+
+#Preview("Browsing") {
+    SongPickerView { _ in }
+        .modelContainer(try! AppSchema.inMemoryContainer())
+}
+
+#Preview("Nothing typed") {
+    SearchMessage(kind: .prompt)
+}
+
+#Preview("No results") {
+    SearchMessage(kind: .noResults("blakbird"))
+}
+
+#Preview("Search failed") {
+    SearchMessage(kind: .failed("The Internet connection appears to be offline."))
 }

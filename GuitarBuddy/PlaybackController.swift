@@ -341,16 +341,6 @@ final class PlaybackController {
         loop?.segments.contains { $0.markerID == marker.persistentModelID } ?? false
     }
 
-    /// Where a clip falls in a chain, counting from one — or `nil` when it
-    /// isn't looping, or is the only clip in scope and so needs no number.
-    func loopOrdinal(_ marker: SongMarker) -> Int? {
-        let segments = loop?.segments ?? []
-        guard segments.count > 1,
-              let index = segments.firstIndex(where: { $0.markerID == marker.persistentModelID })
-        else { return nil }
-        return index + 1
-    }
-
     /// The loop button: the only control that starts or stops looping. From
     /// off it loops the whole song, the right default for learning one, and
     /// the pills narrow it from there. From on it stops, whatever the scope —

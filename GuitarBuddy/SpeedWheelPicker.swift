@@ -130,7 +130,9 @@ struct SpeedWheelPicker: View {
             )
             context.stroke(
                 arc(center: center, radius: radius, to: ringPercent),
-                with: .color(.accentColor),
+                // `.style` rather than a literal colour so the arc resolves the tint
+                // it's drawn inside, the way every other control here does.
+                with: .style(.tint),
                 style: StrokeStyle(lineWidth: 6, lineCap: .round)
             )
         }
@@ -341,4 +343,7 @@ struct SpeedWheelPicker: View {
     @Previewable @State var speed = 0.75
     SpeedWheelPicker(speed: $speed)
         .padding()
+        // Tinted off the default so the value arc is visibly following the
+        // tint rather than happening to match it.
+        .tint(.pink)
 }

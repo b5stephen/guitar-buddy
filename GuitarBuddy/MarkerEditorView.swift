@@ -115,13 +115,7 @@ struct MarkerEditorView: View {
                     HStack(spacing: 12) {
                         TextField(end == nil ? "Marker" : "Clip", text: $name)
                             .textInputAutocapitalization(.words)
-                        Picker("Kind", selection: kind) {
-                            Text("Point").tag(Kind.point)
-                            Text("Clip").tag(Kind.clip)
-                        }
-                        .pickerStyle(.segmented)
-                        .frame(width: 150)
-                        .disabled(end == nil && !canAddEnd)
+                        kindSwitch
                     }
                 }
 
@@ -189,6 +183,51 @@ struct MarkerEditorView: View {
         }
     }
 
+    /// Point or clip, drawn as the two pills themselves rather than as a
+    /// segmented control: the choice is what the marker will look like in the
+    /// row under the scrubber, so it may as well show you.
+    private var kindSwitch: some View {
+        HStack(spacing: 6) {
+            kindButton(.point, title: "Point") {
+                Circle().frame(width: 6, height: 6)
+            }
+            kindButton(.clip, title: "Clip") {
+                SpanGlyph()
+            }
+            .disabled(end == nil && !canAddEnd)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Kind")
+    }
+
+    private func kindButton(
+        _ value: Kind,
+        title: String,
+        @ViewBuilder glyph: () -> some View
+    ) -> some View {
+        let isSelected = kind.wrappedValue == value
+        return Button {
+            kind.wrappedValue = value
+        } label: {
+            HStack(spacing: 5) {
+                glyph()
+                    .opacity(isSelected ? 0.8 : 0.55)
+                Text(title)
+                    .font(.footnote.weight(.medium))
+            }
+            .padding(.horizontal, 11)
+            .padding(.vertical, 7)
+            .background(
+                isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.quaternary),
+                in: Capsule()
+            )
+            .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
     /// The start and, for a clip, the end as big numerals side by side. Tap
     /// one to make it the time the nudges act on; tap the number to type.
     private var times: some View {
@@ -220,8 +259,12 @@ struct MarkerEditorView: View {
                 Text(title.uppercased())
                     .font(.caption2.weight(.semibold))
                     .tracking(0.4)
+                    .foregroundStyle(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                Spacer(minLength: 4)
+                if isSelected {
+                    nowChip(for: title)
+                }
             }
-            .foregroundStyle(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
             PreciseTimeField(time: time, range: range) { selected = handle }
                 .foregroundStyle(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
         }
@@ -234,22 +277,32 @@ struct MarkerEditorView: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
+    /// Sets the selected time to wherever the song has got to. It sits up
+    /// here rather than among the nudges because it belongs to the number it
+    /// writes, and because it's the one control that works in time with the
+    /// music: audition a passage and tap this on the beat, instead of having
+    /// to already know the number.
+    private func nowChip(for title: String) -> some View {
+        Button {
+            setSelected(controller.playbackTime)
+        } label: {
+            Text("Now")
+                .font(.caption2.weight(.semibold))
+                .padding(.horizontal, 9)
+                .padding(.vertical, 3)
+                .background(.tint.opacity(0.14), in: Capsule())
+                .foregroundStyle(.tint)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Set \(title.lowercased()) to the current position")
+    }
+
     /// One row of fine adjustment for whichever time is selected: a second
     /// and a tenth either way, and Now to snap it to the playhead.
     private var nudgeRow: some View {
         HStack(spacing: 8) {
             nudge(-1)
             nudge(-0.1)
-            Button {
-                setSelected(controller.playbackTime)
-            } label: {
-                Label("Now", systemImage: "arrow.up.to.line")
-                    .font(.footnote.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.capsule)
-            .accessibilityLabel("Set to current position")
             nudge(0.1)
             nudge(1)
         }
@@ -263,7 +316,7 @@ struct MarkerEditorView: View {
         } label: {
             Text(amount > 0 ? "+\(PreciseTime.nudgeLabel(amount))" : "−\(PreciseTime.nudgeLabel(-amount))")
                 .font(.footnote.monospacedDigit())
-                .frame(minWidth: 44)
+                .frame(maxWidth: .infinity)
         }
         .buttonStyle(.bordered)
         .accessibilityLabel(amount > 0 ? "Later by \(PreciseTime.nudgeLabel(amount))" : "Earlier by \(PreciseTime.nudgeLabel(-amount))")
@@ -276,20 +329,23 @@ struct MarkerEditorView: View {
 
     /// Quick listens: a couple of seconds either side of a handle, or the
     /// whole clip.
+    /// Three buttons share this row, so the names are as short as they can be
+    /// and still say which end you're listening to — what each one really
+    /// means is on the accessibility label.
     private var auditionRow: some View {
         HStack(spacing: 8) {
             if let end {
-                auditionButton("Start", systemImage: "play.fill") {
+                auditionButton("Start", spoken: "Play the start of the clip") {
                     controller.audition(from: start, to: min(start + Self.auditionLength, end))
                 }
-                auditionButton("Whole clip", systemImage: "play.fill") {
+                auditionButton("Whole", spoken: "Play the whole clip") {
                     controller.audition(from: start, to: end)
                 }
-                auditionButton("To end", systemImage: "play.fill") {
+                auditionButton("End", spoken: "Play the end of the clip") {
                     controller.audition(from: max(start, end - Self.auditionLength), to: end)
                 }
             } else {
-                auditionButton("Play from here", systemImage: "play.fill") {
+                auditionButton("Play from here", spoken: "Play from here") {
                     controller.audition(from: start, to: min(start + Self.auditionLength, duration))
                 }
             }
@@ -297,13 +353,18 @@ struct MarkerEditorView: View {
         .buttonStyle(.bordered)
     }
 
-    private func auditionButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+    private func auditionButton(
+        _ title: String,
+        spoken: String,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
-            Label(title, systemImage: systemImage)
-                .font(.subheadline.weight(.medium))
+            Label(title, systemImage: "play.fill")
+                .font(.footnote.weight(.medium))
+                .lineLimit(1)
                 .frame(maxWidth: .infinity, minHeight: 28)
         }
-        .accessibilityLabel(title == "Play from here" ? title : "Play \(title.lowercased())")
+        .accessibilityLabel(spoken)
     }
 }
 

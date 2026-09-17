@@ -15,6 +15,12 @@ import UIKit
 /// bar reports a live position while the finger is down so the labels track
 /// it, and only commits a seek on release — one seek per gesture instead of
 /// sixty, which keeps the audio from stuttering as you drag.
+///
+/// The bar draws where the markers fall — a hairline per point, a band per
+/// clip, lit for the clips the loop is running — and leaves their names to
+/// the pills underneath. Names on the track only ever fitted a handful of
+/// them at ordinary type sizes, and a screen that rearranges itself when you
+/// add one more marker is worse than a screen with one layout.
 struct PlaybackScrubber: View {
     /// Where the playhead is, in seconds.
     let position: TimeInterval
@@ -34,6 +40,11 @@ struct PlaybackScrubber: View {
         let id: AnyHashable
         let start: TimeInterval
         let end: TimeInterval?
+        /// In the running loop's scope, which is the one thing the track
+        /// shows in colour.
+        var isLooping: Bool = false
+
+        var isClip: Bool { end != nil }
     }
 
     /// Live drag position. Non-nil only while a finger is down, and it — not
@@ -72,10 +83,13 @@ struct PlaybackScrubber: View {
             ZStack(alignment: .leading) {
                 Capsule()
                     .fill(.quaternary)
+                // Dimmer than a plain tint fill: the lit loop bands are drawn
+                // in the same colour, and they're the thing to see.
                 Capsule()
-                    .fill(.tint)
+                    .fill(.tint.opacity(0.45))
                     .frame(width: max(height, width * fraction))
                 markerOverlay(width: width, height: height)
+                playhead(width: width, height: height)
             }
             .frame(height: height)
             .frame(maxHeight: .infinity)
@@ -90,7 +104,9 @@ struct PlaybackScrubber: View {
     }
 
     /// Points and clips on the track. Drawn over the fill in a neutral ink so
-    /// they stay legible on both the played and unplayed halves of the bar.
+    /// they stay legible on both the played and unplayed halves of the bar —
+    /// except the looping ones, which are taller than the bar and ringed in
+    /// the background colour so nothing behind them can swallow the tint.
     @ViewBuilder
     private func markerOverlay(width: CGFloat, height: CGFloat) -> some View {
         if let duration, duration > 0 {
@@ -98,10 +114,22 @@ struct PlaybackScrubber: View {
                 let x = width * min(max(marker.start / duration, 0), 1)
                 if let end = marker.end {
                     let span = width * min(max((end - marker.start) / duration, 0), 1)
-                    Capsule()
-                        .fill(.primary.opacity(0.22))
-                        .frame(width: max(2, span), height: height)
+                    if marker.isLooping {
+                        ZStack {
+                            Capsule()
+                                .fill(.background)
+                                .frame(width: max(2, span) + 4, height: 18)
+                            Capsule()
+                                .fill(.tint)
+                                .frame(width: max(2, span), height: 14)
+                        }
                         .offset(x: x)
+                    } else {
+                        Capsule()
+                            .fill(.primary.opacity(0.25))
+                            .frame(width: max(2, span), height: height)
+                            .offset(x: x)
+                    }
                 } else {
                     Capsule()
                         .fill(.primary.opacity(0.45))
@@ -111,6 +139,23 @@ struct PlaybackScrubber: View {
             }
             .allowsHitTesting(false)
         }
+    }
+
+    /// Hollow rather than solid, so it stays visible sitting on top of a lit
+    /// loop band in the same tint as the fill behind it.
+    private func playhead(width: CGFloat, height: CGFloat) -> some View {
+        Capsule()
+            .fill(.background)
+            .overlay(Capsule().strokeBorder(.primary.opacity(0.25), lineWidth: 1.5))
+            .frame(width: 6, height: max(14, height + 8))
+            .offset(x: min(max(0, width * fraction - 3), max(0, width - 6)))
+            .allowsHitTesting(false)
+            .opacity(duration == nil ? 0 : 1)
+    }
+
+    private func fraction(of marker: Marker) -> Double {
+        guard let duration, duration > 0 else { return 0 }
+        return min(max(marker.start / duration, 0), 1)
     }
 
     private func dragGesture(width: CGFloat) -> some Gesture {
@@ -155,15 +200,51 @@ struct PlaybackScrubber: View {
     }
 }
 
-#Preview {
+#Preview("A few markers") {
     PlaybackScrubber(
         position: 71,
         duration: 245,
         markers: [
-            .init(id: "intro", start: 12, end: nil),
-            .init(id: "solo", start: 96, end: 128)
+            .init(id: "intro", start: 4, end: nil),
+            .init(id: "verse", start: 40, end: 71),
+            .init(id: "solo", start: 96, end: 128, isLooping: true),
+            .init(id: "outro", start: 238, end: nil)
         ]
     ) { _ in }
         .tint(.pink)
-        .padding()
+        .padding(.horizontal, 32)
+}
+
+// The case the halo around a lit band is there for: the loop is behind the
+// playhead, so the band is sitting on the played fill in the same tint.
+#Preview("Looping, already played") {
+    PlaybackScrubber(
+        position: 190,
+        duration: 245,
+        markers: [
+            .init(id: "intro", start: 4, end: nil),
+            .init(id: "verse", start: 40, end: 71),
+            .init(id: "solo", start: 96, end: 128, isLooping: true),
+            .init(id: "outro", start: 238, end: nil)
+        ]
+    ) { _ in }
+        .tint(.pink)
+        .padding(.horizontal, 32)
+}
+
+#Preview("A songful of markers") {
+    PlaybackScrubber(
+        position: 110,
+        duration: 245,
+        markers: (0..<8).map {
+            .init(
+                id: $0,
+                start: TimeInterval($0) * 28 + 4,
+                end: $0.isMultiple(of: 2) ? TimeInterval($0) * 28 + 22 : nil,
+                isLooping: $0 == 4
+            )
+        }
+    ) { _ in }
+        .tint(.pink)
+        .padding(.horizontal, 32)
 }
