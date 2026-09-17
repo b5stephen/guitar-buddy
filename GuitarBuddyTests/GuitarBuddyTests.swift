@@ -31,6 +31,7 @@ struct SavedSongTests {
     @discardableResult
     private func save(
         _ songID: String,
+        catalogID: String? = nil,
         title: String = "Blackbird",
         artist: String = "The Beatles",
         artworkData: Data? = nil,
@@ -38,6 +39,7 @@ struct SavedSongTests {
     ) -> SavedSong {
         SavedSong.save(
             songID: songID,
+            catalogID: catalogID,
             title: title,
             artistName: artist,
             artworkData: artworkData,
@@ -74,13 +76,22 @@ struct SavedSongTests {
     func reSaveRefreshesMetadata() throws {
         let old = Data("old".utf8)
         let new = Data("new".utf8)
-        save("i.1", title: "Blackbrid", artist: "Beatles", artworkData: old)
-        save("i.1", title: "Blackbird", artist: "The Beatles", artworkData: new)
+        save("i.1", catalogID: "1", title: "Blackbrid", artist: "Beatles", artworkData: old)
+        save("i.1", catalogID: "1440857781", title: "Blackbird", artist: "The Beatles", artworkData: new)
 
         let song = try #require(SavedSong.find(songID: "i.1", in: context))
         #expect(song.title == "Blackbird")
         #expect(song.artistName == "The Beatles")
         #expect(song.artworkData == new)
+        #expect(song.catalogID == "1440857781")
+    }
+
+    /// The pair of IDs is what lets a saved song still be found after the user
+    /// takes it out of their library, which orphans the library ID.
+    @Test("Saving keeps the catalog ID alongside the library one")
+    func savesCatalogID() throws {
+        save("i.1", catalogID: "1440857781")
+        #expect(try allSongs()[0].catalogID == "1440857781")
     }
 
     /// The rule behind `SavedSongsView.add`: re-adding a song the user has

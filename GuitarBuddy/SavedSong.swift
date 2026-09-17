@@ -25,6 +25,12 @@ final class SavedSong {
     #Unique<SavedSong>([\.songID])
 
     var songID: String = ""
+    /// The same song's Apple Music catalog ID, when it has one. Stored
+    /// separately because `songID` may be a library ID, which stops resolving
+    /// the moment the user takes the song out of their library — the catalog
+    /// ID is what survives that. `nil` for a song with no catalog counterpart,
+    /// which the user imported themselves.
+    var catalogID: String?
     var speed: Double = 1.0
     var title: String = ""
     var artistName: String = ""
@@ -39,6 +45,7 @@ final class SavedSong {
 
     init(
         songID: String,
+        catalogID: String? = nil,
         speed: Double,
         title: String = "",
         artistName: String = "",
@@ -46,6 +53,7 @@ final class SavedSong {
         lastPracticed: Date = .now
     ) {
         self.songID = songID
+        self.catalogID = catalogID
         self.speed = speed
         self.title = title
         self.artistName = artistName
@@ -84,6 +92,7 @@ extension SavedSong {
     @discardableResult
     static func save(
         songID: String,
+        catalogID: String? = nil,
         title: String,
         artistName: String,
         artworkData: Data?,
@@ -99,10 +108,12 @@ extension SavedSong {
             existing.title = title
             existing.artistName = artistName
             existing.artworkData = artworkData
+            existing.catalogID = catalogID
             song = existing
         } else {
             song = SavedSong(
                 songID: songID,
+                catalogID: catalogID,
                 speed: speed,
                 title: title,
                 artistName: artistName,
@@ -120,6 +131,7 @@ extension SavedSong {
     static func save(song: Song, speed: Double, in context: ModelContext) -> SavedSong {
         save(
             songID: song.id.rawValue,
+            catalogID: song.catalogID,
             title: song.title,
             artistName: song.artistName,
             artworkData: song.artwork.flatMap { try? JSONEncoder().encode($0) },

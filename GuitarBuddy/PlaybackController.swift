@@ -245,14 +245,17 @@ final class PlaybackController {
         }
     }
 
-    /// Picks a song from the saved list, which stores only its ID. Returns
+    /// Picks a song from the saved list, which stores only its IDs. Returns
     /// whether the song was found: a saved song can outlive its place in the
     /// library, and the caller needs to know not to send the user to a practice
     /// screen still showing the previous track.
     @discardableResult
-    func select(savedID: String) async -> Bool {
+    func select(saved: SavedSong) async -> Bool {
         do {
-            guard let song = try await SongLookup.song(withID: savedID) else {
+            guard let song = try await SongLookup.song(
+                libraryID: saved.songID,
+                catalogID: saved.catalogID
+            ) else {
                 errorMessage = "That song isn't in your library or on Apple Music any more."
                 return false
             }

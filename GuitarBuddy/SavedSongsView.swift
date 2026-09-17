@@ -139,7 +139,7 @@ struct SavedSongsView: View {
     private func practice(_ song: SavedSong, jumpingTo marker: SongMarker? = nil) {
         loadingID = song.songID
         Task {
-            let found = await controller.select(savedID: song.songID)
+            let found = await controller.select(saved: song)
             loadingID = nil
             guard found else {
                 // Sending the user to a practice screen still showing the last
