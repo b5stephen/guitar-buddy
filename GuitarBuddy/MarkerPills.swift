@@ -15,9 +15,9 @@ import SwiftUI
 /// two competing ones, and the fill is left free to mean only state: idle,
 /// cued under the playhead, or lit because it's in the running loop.
 ///
-/// Everything past the tap is optional, since the saved list can't loop or
-/// edit a song that isn't loaded — a pill there just opens the song at that
-/// spot, with delete on a long press.
+/// Everything past the tap is optional, since the saved list has no loop to
+/// put a clip in — what a tap means is the caller's to decide, and the long
+/// press carries whatever else that screen can do with a marker.
 struct MarkerPills: View {
     let markers: [SongMarker]
     /// Leading and trailing inset, to line the row up with whatever it sits
@@ -38,6 +38,10 @@ struct MarkerPills: View {
     /// Loops this clip alone and starts playing it. Clips only, and absent
     /// wherever there's no loaded song to play.
     var onPlayLoop: ((SongMarker) -> Void)?
+    /// What the long press calls the jump. The practice screen moves its own
+    /// playhead; the saved list loads the song and goes to the practice
+    /// screen, which is a bigger move and has to say so.
+    var jumpTitle: String = "Jump to Start"
     var onJump: ((SongMarker) -> Void)?
     var onEdit: ((SongMarker) -> Void)?
     var onDelete: ((SongMarker) -> Void)?
@@ -71,62 +75,102 @@ struct MarkerPills: View {
         .contentMargins(.trailing, inset, for: .scrollContent)
     }
 
+    /// One pill: tap for what the screen makes of a tap, long press for the
+    /// rest, and the same VoiceOver actions either way — a long press isn't
+    /// reachable from there.
     private func pill(_ marker: SongMarker) -> some View {
+        pillControl(marker)
+            .buttonStyle(.plain)
+            .accessibilityLabel(accessibilityLabel(marker, state: state(of: marker)))
+            .accessibilityValue(marker.timeLabel)
+            .ifLet(marker.isClip ? onPlayLoop : nil) { view, playLoop in
+                view.accessibilityAction(named: "Play on loop") { playLoop(marker) }
+            }
+            .ifLet(onJump) { view, jump in
+                view.accessibilityAction(named: jumpTitle) { jump(marker) }
+            }
+            .ifLet(onEdit) { view, edit in
+                view.accessibilityAction(named: "Edit") { edit(marker) }
+            }
+            .ifLet(onDelete) { view, remove in
+                view.accessibilityAction(named: "Delete") { remove(marker) }
+            }
+    }
+
+    /// The control under the pill — which is the only thing the long press
+    /// changes, so everything shared hangs off `pill(_:)` above instead.
+    ///
+    /// A `Menu` with a primary action rather than `.contextMenu`, because a
+    /// context menu declared inside a `List` row is hoisted to the whole cell.
+    /// On the saved list that gave the row one menu instead of one per pill —
+    /// it opened from anywhere in the row, lifted the whole rectangle, and ran
+    /// the *first* marker's actions whichever pill you pressed, which is what
+    /// made "Practice From Here" always land on the first marker. A menu
+    /// button belongs to the pill it's drawn on, in a list or out of one.
+    @ViewBuilder
+    private func pillControl(_ marker: SongMarker) -> some View {
+        if hasMenu(for: marker) {
+            Menu {
+                menuItems(marker)
+            } label: {
+                pillLabel(marker)
+            } primaryAction: {
+                onTap(marker)
+            }
+        } else {
+            // Nothing behind the long press on this screen, so there's no menu
+            // to put the tap inside.
+            Button { onTap(marker) } label: { pillLabel(marker) }
+        }
+    }
+
+    /// Whether the long press has anything to offer for this marker.
+    private func hasMenu(for marker: SongMarker) -> Bool {
+        (marker.isClip && onPlayLoop != nil)
+            || onJump != nil
+            || onEdit != nil
+            || onDelete != nil
+    }
+
+    private func pillLabel(_ marker: SongMarker) -> some View {
         let state = state(of: marker)
 
-        return Button {
-            onTap(marker)
-        } label: {
-            HStack(spacing: 5) {
-                glyph(marker)
-                    .opacity(state == .looping ? 0.8 : 0.55)
-                Text(marker.name)
-                    .font(.footnote.weight(.medium))
-                    .lineLimit(1)
-                if let length = clipLength(marker) {
-                    Text(length)
-                        .font(.footnote.monospacedDigit())
-                        .opacity(0.6)
-                }
-            }
-            .padding(.horizontal, 11)
-            .padding(.vertical, 7)
-            .background(fill(state), in: Capsule())
-            // Stroked rather than bordered so joining the loop never changes
-            // the pill's size and reflows the row around it.
-            .overlay(Capsule().strokeBorder(.tint, lineWidth: state == .cued ? 1.5 : 0))
-            .foregroundStyle(foreground(state))
-        }
-        .buttonStyle(.plain)
-        .contextMenu {
-            // First, and above Jump: it's the stronger form of the same
-            // intent, and the quickest way to drill one clip.
-            if let onPlayLoop, marker.isClip {
-                Button { onPlayLoop(marker) } label: { Label("Play on Loop", systemImage: "repeat") }
-            }
-            if let onJump {
-                Button { onJump(marker) } label: { Label("Jump to Start", systemImage: "arrow.turn.down.right") }
-            }
-            if let onEdit {
-                Button { onEdit(marker) } label: { Label("Edit", systemImage: "pencil") }
-            }
-            if let onDelete {
-                Button(role: .destructive) { onDelete(marker) } label: { Label("Delete", systemImage: "trash") }
+        return HStack(spacing: 5) {
+            glyph(marker)
+                .opacity(state == .looping ? 0.8 : 0.55)
+            Text(marker.name)
+                .font(.footnote.weight(.medium))
+                .lineLimit(1)
+            if let length = clipLength(marker) {
+                Text(length)
+                    .font(.footnote.monospacedDigit())
+                    .opacity(0.6)
             }
         }
-        .accessibilityLabel(accessibilityLabel(marker, state: state))
-        .accessibilityValue(marker.timeLabel)
-        .ifLet(marker.isClip ? onPlayLoop : nil) { view, playLoop in
-            view.accessibilityAction(named: "Play on loop") { playLoop(marker) }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 7)
+        .background(fill(state), in: Capsule())
+        // Stroked rather than bordered so joining the loop never changes
+        // the pill's size and reflows the row around it.
+        .overlay(Capsule().strokeBorder(.tint, lineWidth: state == .cued ? 1.5 : 0))
+        .foregroundStyle(foreground(state))
+    }
+
+    @ViewBuilder
+    private func menuItems(_ marker: SongMarker) -> some View {
+        // First, and above Jump: it's the stronger form of the same
+        // intent, and the quickest way to drill one clip.
+        if let onPlayLoop, marker.isClip {
+            Button { onPlayLoop(marker) } label: { Label("Play on Loop", systemImage: "repeat") }
         }
-        .ifLet(onJump) { view, jump in
-            view.accessibilityAction(named: "Jump to start") { jump(marker) }
+        if let onJump {
+            Button { onJump(marker) } label: { Label(jumpTitle, systemImage: "arrow.turn.down.right") }
         }
-        .ifLet(onEdit) { view, edit in
-            view.accessibilityAction(named: "Edit") { edit(marker) }
+        if let onEdit {
+            Button { onEdit(marker) } label: { Label("Edit", systemImage: "pencil") }
         }
-        .ifLet(onDelete) { view, remove in
-            view.accessibilityAction(named: "Delete") { remove(marker) }
+        if let onDelete {
+            Button(role: .destructive) { onDelete(marker) } label: { Label("Delete", systemImage: "trash") }
         }
     }
 
@@ -159,15 +203,10 @@ struct MarkerPills: View {
         }
     }
 
-    /// A clip says how long it is; a point has no length to say. Seconds up to
-    /// a minute, because "45s" is the number you compare passages on, and m:ss
-    /// past that where seconds alone stop being readable.
+    /// A clip says how long it is; a point has no length to say.
     private func clipLength(_ marker: SongMarker) -> String? {
         guard let end = marker.endTime else { return nil }
-        let length = max(0, end - marker.startTime)
-        return length < 60
-            ? "\(Int(length.rounded()))s"
-            : PlaybackScrubber.timeLabel(length)
+        return PlaybackScrubber.lengthLabel(max(0, end - marker.startTime))
     }
 
     private func state(of marker: SongMarker) -> PillState {

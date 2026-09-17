@@ -28,8 +28,9 @@ struct MarkerEditorView: View {
     /// Which time the nudge row and Now act on.
     @State private var selected: MarkerHandle = .start
 
-    /// How much of the track an audition plays either side of a handle.
-    private static let auditionLength: TimeInterval = 2
+    /// How far before a handle a cue button drops the playhead, so you hear
+    /// the run-up to it rather than starting on top of it.
+    private static let leadIn: TimeInterval = 2
     /// The end time a clip starts life with, before the user drags it.
     private static let defaultClipLength: TimeInterval = 4
 
@@ -144,7 +145,7 @@ struct MarkerEditorView: View {
                 }
 
                 Section {
-                    auditionRow
+                    transportRow
                 }
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
@@ -327,39 +328,57 @@ struct MarkerEditorView: View {
         selectedTime.wrappedValue = max(range.lowerBound, min(value, range.upperBound))
     }
 
-    /// Quick listens: a couple of seconds either side of a handle, or the
-    /// whole clip.
-    /// Three buttons share this row, so the names are as short as they can be
-    /// and still say which end you're listening to — what each one really
-    /// means is on the accessibility label.
-    private var auditionRow: some View {
+    /// The transport, so the song can be listened to properly from in here:
+    /// play/pause on the left, and beside it the one or two places worth
+    /// dropping the playhead while you're placing a handle.
+    ///
+    /// The cue buttons start the song and leave it running. A two-second
+    /// snippet is enough to tell you a handle landed somewhere, but not
+    /// whether the clip is the right piece of music — and a snippet that stops
+    /// itself leaves you with nothing to press when you want it to stop
+    /// sooner.
+    private var transportRow: some View {
         HStack(spacing: 8) {
+            playPauseButton
+
             if let end {
-                auditionButton("Start", spoken: "Play the start of the clip") {
-                    controller.audition(from: start, to: min(start + Self.auditionLength, end))
+                cueButton("Start", spoken: "Play from the start of the clip") {
+                    controller.playFrom(start)
                 }
-                auditionButton("Whole", spoken: "Play the whole clip") {
-                    controller.audition(from: start, to: end)
-                }
-                auditionButton("End", spoken: "Play the end of the clip") {
-                    controller.audition(from: max(start, end - Self.auditionLength), to: end)
+                // Before the end rather than at it: what you're listening for
+                // is whether the clip ends in the right place, which you can
+                // only hear by running into it.
+                cueButton("End", spoken: "Play into the end of the clip") {
+                    controller.playFrom(max(start, end - Self.leadIn))
                 }
             } else {
-                auditionButton("Play from here", spoken: "Play from here") {
-                    controller.audition(from: start, to: min(start + Self.auditionLength, duration))
+                cueButton("Play from here", spoken: "Play from the marker") {
+                    controller.playFrom(start)
                 }
             }
         }
         .buttonStyle(.bordered)
     }
 
-    private func auditionButton(
+    private var playPauseButton: some View {
+        Button {
+            controller.togglePlayPause()
+        } label: {
+            Image(systemName: controller.isPlaying ? "pause.fill" : "play.fill")
+                .font(.footnote.weight(.semibold))
+                .frame(width: 30)
+                .frame(minHeight: 28)
+        }
+        .accessibilityLabel(controller.isPlaying ? "Pause" : "Play")
+    }
+
+    private func cueButton(
         _ title: String,
         spoken: String,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            Label(title, systemImage: "play.fill")
+            Label(title, systemImage: "arrow.turn.down.right")
                 .font(.footnote.weight(.medium))
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, minHeight: 28)

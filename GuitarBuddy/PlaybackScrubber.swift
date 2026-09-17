@@ -198,6 +198,15 @@ struct PlaybackScrubber: View {
             ? String(format: "%d:%02d:%02d", h, m, s)
             : String(format: "%d:%02d", m, s)
     }
+
+    /// How long something *is*, rather than where it falls: seconds up to a
+    /// minute, because "45s" is the number you compare passages on, and m:ss
+    /// past that where seconds alone stop being readable.
+    nonisolated static func lengthLabel(_ seconds: TimeInterval) -> String {
+        seconds < 60
+            ? "\(Int(seconds.rounded()))s"
+            : timeLabel(seconds)
+    }
 }
 
 #Preview("A few markers") {

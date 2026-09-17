@@ -132,10 +132,7 @@ struct MarkerRangeEditor: View {
                 ticks(width: width)
 
                 if window.contains(playhead) {
-                    Rectangle()
-                        .fill(.secondary)
-                        .frame(width: 1, height: Self.barHeight)
-                        .offset(x: x(playhead, width: width))
+                    playheadLine(at: x(playhead, width: width))
                 }
 
                 handle(at: x(start, width: width), filled: true)
@@ -146,6 +143,29 @@ struct MarkerRangeEditor: View {
             .contentShape(.rect)
             .gesture(dragGesture(width: width))
         }
+    }
+
+    /// Where the song has got to. It shares the strip with the tick lines,
+    /// which are hairlines in the same grey at the same height, so it can't be
+    /// one too: it gets a head, twice the width, full contrast, and a pale
+    /// halo to lift it off whatever it's crossing.
+    private func playheadLine(at position: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            Triangle()
+                .fill(.primary)
+                .frame(width: 9, height: 6)
+            Rectangle()
+                .fill(.primary)
+                .frame(width: 2)
+                .frame(maxHeight: .infinity)
+        }
+        .frame(width: 9, height: Self.barHeight)
+        .background(alignment: .top) {
+            Rectangle()
+                .fill(.background.opacity(0.85))
+                .frame(width: 6, height: Self.barHeight)
+        }
+        .offset(x: position - 4.5)
     }
 
     private func handle(at position: CGFloat, filled: Bool) -> some View {
@@ -261,6 +281,19 @@ struct MarkerRangeEditor: View {
         }
         if nearest.1 <= Self.grabRadius { return nearest.0 }
         return zoom == .whole ? .nothing : .pan(from: windowStart)
+    }
+}
+
+/// The playhead's head: a downward point, drawn here because it's the only
+/// triangle in the app.
+private struct Triangle: Shape {
+    nonisolated func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+        path.closeSubpath()
+        return path
     }
 }
 

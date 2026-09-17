@@ -12,9 +12,8 @@ import SwiftUI
 struct SavedSongsView: View {
     let controller: PlaybackController
     /// Brings the practice tab forward, once a song is on its way to the
-    /// player. `addingMarker` asks it to open the marker editor on arrival,
-    /// which is what a tap on a song's Mark pill means.
-    let onPractice: (_ addingMarker: Bool) -> Void
+    /// player.
+    let onPractice: () -> Void
 
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \SavedSong.lastPracticed, order: .reverse)
@@ -28,6 +27,23 @@ struct SavedSongsView: View {
     /// A lookup that came back empty. Shown here rather than on the practice
     /// screen, which the user never reaches when it fails.
     @State private var lookupError: String?
+    /// What the marker editor is open on, if it is.
+    @State private var marking: Marking?
+
+    /// The marker editor's subject: which song, the marker being edited or
+    /// `nil` when one is being added, and the time a new one starts at.
+    private struct Marking: Identifiable {
+        let song: SavedSong
+        let marker: SongMarker?
+        let start: TimeInterval
+
+        /// Marker identity, so opening one marker straight after another
+        /// rebuilds the sheet rather than reusing it.
+        var id: String {
+            marker.map { "edit-\($0.persistentModelID.hashValue)" }
+                ?? "new-\(song.persistentModelID.hashValue)"
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -75,16 +91,23 @@ struct SavedSongsView: View {
                                 markers: song.sortedMarkers,
                                 inset: 16,
                                 leadingInset: SavedSongRow.titleInset,
-                                onTap: { practice(song, jumpingTo: $0) },
+                                // A tap opens the marker rather than the
+                                // song: this is the screen you come to to keep
+                                // your markers in order, and the Mark pill
+                                // beside them already writes new ones here.
+                                // Loading the song is what the row above is
+                                // for, and it's still a long press away.
+                                onTap: { openEditor(song, marker: $0) },
+                                jumpTitle: "Practice From Here",
+                                onJump: { practice(song, jumpingTo: $0) },
                                 onDelete: { delete($0) },
-                                onAddMarker: { practice(song, addingMarker: true) }
+                                onAddMarker: { openEditor(song) }
                             )
                             // The row's own insets are zero so the pills can
                             // scroll the full width.
                             .listRowInsets(EdgeInsets())
                             .listRowSeparator(.hidden)
                             .padding(.bottom, 10)
-                            .accessibilityHint("Practice from this spot")
                             // Drawn rather than left to the list: a `List`
                             // separator would sit between the song and its own
                             // pills as well as between songs.
@@ -124,6 +147,35 @@ struct SavedSongsView: View {
             } message: {
                 Text(lookupError ?? "")
             }
+            .sheet(item: $marking) { marking in
+                if let duration = controller.duration {
+                    if let marker = marking.marker {
+                        MarkerEditorView(
+                            marker: marker,
+                            duration: duration,
+                            controller: controller,
+                            onSave: { name, start, end in
+                                update(marker, name: name, start: start, end: end)
+                            },
+                            onDelete: { delete(marker) }
+                        )
+                    } else {
+                        MarkerEditorView(
+                            initialStart: marking.start,
+                            duration: duration,
+                            controller: controller
+                        ) { name, start, end in
+                            SongMarker.add(
+                                to: marking.song,
+                                name: name,
+                                startTime: start,
+                                endTime: end,
+                                in: modelContext
+                            )
+                        }
+                    }
+                }
+            }
             .sheet(item: $editing) { song in
                 SpeedEditorSheet(song: song) { speed in
                     save(speed, for: song)
@@ -157,11 +209,7 @@ struct SavedSongsView: View {
     /// resets the playhead, so the jump has to come after it either way.
     /// `select` keeps the loop button as it was but drops its scope, so a clip
     /// opened from here plays on rather than looping until the user lights it.
-    private func practice(
-        _ song: SavedSong,
-        jumpingTo marker: SongMarker? = nil,
-        addingMarker: Bool = false
-    ) {
+    private func practice(_ song: SavedSong, jumpingTo marker: SongMarker? = nil) {
         loadingID = song.songID
         Task {
             // Playing a saved song needs the library too, and this may be the
@@ -181,8 +229,49 @@ struct SavedSongsView: View {
             }
             if let marker { controller.jump(to: marker) }
             SavedSong.touch(song, in: modelContext)
-            onPractice(addingMarker)
+            onPractice()
         }
+    }
+
+    /// Opens the marker editor on this song — on one of its markers, or on a
+    /// new one — without leaving the list. The song still has to reach the
+    /// player first, since the editor plays the passage you're working on, but
+    /// the tab stays put: cancelling or saving hands the user back the list
+    /// they started from instead of a practice screen they never asked for.
+    private func openEditor(_ song: SavedSong, marker: SongMarker? = nil) {
+        guard controller.selectedSong?.id.rawValue != song.songID else {
+            present(song, marker: marker)
+            return
+        }
+        loadingID = song.songID
+        Task {
+            guard await controller.requestAuthorizationIfNeeded() else {
+                loadingID = nil
+                lookupError = "Allow Apple Music access in Settings to mark up this song."
+                return
+            }
+            let found = await controller.select(saved: song)
+            loadingID = nil
+            guard found else {
+                lookupError = controller.errorMessage
+                return
+            }
+            present(song, marker: marker)
+        }
+    }
+
+    /// Opens the editor on the loaded song. Pausing first for the same reason
+    /// the practice screen's mark button does: the song mustn't run on while
+    /// the user is working on a time they've just heard.
+    private func present(_ song: SavedSong, marker: SongMarker?) {
+        // The strip and every time in the editor are measured against the
+        // track's length, so there's nothing to open without one.
+        guard controller.duration != nil else {
+            lookupError = "Apple Music didn't say how long that song is, so it can't be marked up."
+            return
+        }
+        let now = controller.pauseForMarking()
+        marking = .init(song: song, marker: marker, start: marker?.startTime ?? now)
     }
 
     private func save(_ speed: Double, for song: SavedSong) {
@@ -198,6 +287,14 @@ struct SavedSongsView: View {
         for marker in song.markers { controller.markerDeleted(marker) }
         modelContext.delete(song)
         try? modelContext.save()
+    }
+
+    /// Writes an edited marker back, and keeps a running loop in step with it
+    /// — the song being edited from here may well be the one playing.
+    private func update(_ marker: SongMarker, name: String, start: TimeInterval, end: TimeInterval?) {
+        marker.set(name: name, start: start, end: end)
+        try? modelContext.save()
+        controller.markerChanged(marker)
     }
 
     private func delete(_ marker: SongMarker) {
@@ -353,12 +450,12 @@ private struct SpeedEditorSheet: View {
         artworkData: nil, speed: 1.0, in: context
     )
 
-    return SavedSongsView(controller: PlaybackController()) { _ in }
+    return SavedSongsView(controller: PlaybackController()) {}
         .modelContainer(container)
 }
 
 #Preview("Empty") {
-    SavedSongsView(controller: PlaybackController()) { _ in }
+    SavedSongsView(controller: PlaybackController()) {}
         .modelContainer(try! AppSchema.inMemoryContainer())
 }
 

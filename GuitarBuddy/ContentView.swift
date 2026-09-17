@@ -14,11 +14,6 @@ struct ContentView: View {
     /// Owned by `RootTabView`, since the saved list drives it too. `@Bindable`
     /// rather than `let` so the speed wheel can still bind to `playbackRate`.
     @Bindable var controller: PlaybackController
-    /// Set by the saved list, through `RootTabView`, when the user taps a
-    /// song's Mark pill: the song is already loading when the tab comes
-    /// forward, and this is the request to open the editor on it.
-    @Binding var newMarkerRequested: Bool
-
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
     @Query private var savedSongs: [SavedSong]
@@ -87,14 +82,6 @@ struct ContentView: View {
                     )
                 }
             }
-        }
-        .onChange(of: newMarkerRequested) { _, wanted in
-            // At the top of the song, since a song that has just been loaded
-            // hasn't been listened to yet — the user marks their way in from
-            // there.
-            guard wanted, controller.duration != nil else { return }
-            markerSheet = .new(start: 0)
-            newMarkerRequested = false
         }
         .onChange(of: scenePhase) { _, phase in
             // The ticker was idle while we were backgrounded, so the playhead
@@ -266,7 +253,7 @@ struct ContentView: View {
             return "Looping \(name)"
         default:
             let total = segments.reduce(0) { $0 + ($1.end - $1.start) }
-            return "Looping \(segments.count) clips · \(Self.lengthLabel(total))"
+            return "Looping \(segments.count) clips · \(PlaybackScrubber.lengthLabel(total))"
         }
     }
 
@@ -280,14 +267,6 @@ struct ContentView: View {
         case 1: return "One clip"
         default: return "\(clips) clips"
         }
-    }
-
-    /// Seconds up to a minute, m:ss past it — the same reading the clip pills
-    /// give, since this is a sum of them.
-    private static func lengthLabel(_ seconds: TimeInterval) -> String {
-        seconds < 60
-            ? "\(Int(seconds.rounded()))s"
-            : PlaybackScrubber.timeLabel(seconds)
     }
 
     // MARK: - Markers
@@ -645,7 +624,7 @@ struct MarkGlyph: View {
 }
 
 #Preview {
-    ContentView(controller: PlaybackController(), newMarkerRequested: .constant(false))
+    ContentView(controller: PlaybackController())
         .modelContainer(try! AppSchema.inMemoryContainer())
 }
 

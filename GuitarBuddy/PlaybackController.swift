@@ -45,6 +45,14 @@ final class PlaybackController {
     /// True while the user has a finger on the scrubber, which suspends the
     /// ticker so the thumb doesn't fight the playhead.
     var isScrubbing = false
+    /// True once the current queue has actually played. A queue that has been
+    /// prepared but never played doesn't keep a `playbackTime` written to it —
+    /// it starts at the top whatever you asked for.
+    private var hasPlayed = false
+    /// A start position asked for before the queue had played, held so it can
+    /// be applied again the moment it will stick. This is what makes opening a
+    /// saved song at one of its markers land on the marker rather than at 0:00.
+    private var pendingStart: TimeInterval?
     /// When the last seek was issued. The player takes a moment to actually
     /// move, and reading it in that window reports the *old* position — which
     /// would yank the bar back to where the user just dragged away from.
@@ -58,10 +66,6 @@ final class PlaybackController {
     /// the chain — after a jump or a scrub — and the ticker leaves it alone
     /// until it plays back in.
     private var loopIndex: Int?
-    /// Where an audition stops. Set by `audition(from:to:)` and cleared by the
-    /// ticker when the playhead gets there, or by anything the user does with
-    /// the transport in the meantime.
-    private var auditionEnd: TimeInterval?
 
     /// The loop's scope. Clips are held as copies of the marker's times rather
     /// than the markers themselves, so a deleted marker can't leave a dangling
@@ -135,6 +139,9 @@ final class PlaybackController {
     }
 
     private func readPlaybackTime() {
+        // A start the player hasn't taken yet: it would report the top of the
+        // track and lose the position the user asked to open at.
+        guard pendingStart == nil else { return }
         // Inside the settling window after a seek the player still reports the
         // old position, so leave the value we set optimistically in place.
         if let lastSeek {
@@ -145,12 +152,7 @@ final class PlaybackController {
         // Clamp: the player can report a hair past the end as a track wraps.
         playbackTime = max(0, min(time, duration ?? time))
 
-        if let auditionEnd, playbackTime >= auditionEnd {
-            self.auditionEnd = nil
-            player.pause()
-        } else {
-            advanceChainIfNeeded()
-        }
+        advanceChainIfNeeded()
     }
 
     /// Keeps a clip chain running. Whole-song looping isn't here — that's the
@@ -183,6 +185,16 @@ final class PlaybackController {
         playbackTime = target
         player.playbackTime = target
         lastSeek = .now
+        // Asked for before the queue has played, the player will forget it, so
+        // keep it for `play()` to put back.
+        guard !hasPlayed else { return }
+        pendingStart = target
+        // Unless the queue is already running, in which case there's nothing
+        // to wait for — and nobody is going to press play to collect it, since
+        // the song is playing already.
+        if isPlaying {
+            Task { await applyPendingStart() }
+        }
     }
 
     /// A seek the user asked for, rather than one the chain made. Forgets
@@ -200,7 +212,6 @@ final class PlaybackController {
 
     /// Ends a scrub gesture at `time`: one seek, then the ticker takes over.
     func endScrub(at time: TimeInterval) {
-        auditionEnd = nil
         userSeek(to: time)
         isScrubbing = false
     }
@@ -244,7 +255,8 @@ final class PlaybackController {
         // way repeat does in any player. Its scope can't: those clips belonged
         // to the last track.
         setLoop(loop == nil ? nil : .wholeSong)
-        auditionEnd = nil
+        hasPlayed = false
+        pendingStart = nil
         do {
             player.queue = [song]
             // Drilling the same eight bars two hundred times shouldn't shape the
@@ -281,7 +293,6 @@ final class PlaybackController {
     }
 
     func togglePlayPause() {
-        auditionEnd = nil
         if isPlaying {
             player.pause()
         } else {
@@ -293,6 +304,8 @@ final class PlaybackController {
         Task {
             do {
                 try await playerBox.play()
+                hasPlayed = true
+                await applyPendingStart()
                 try? await Task.sleep(for: .milliseconds(300))
                 applyRateIfPossible()
                 verifyRateStuck()
@@ -302,23 +315,45 @@ final class PlaybackController {
         }
     }
 
+    /// Puts a held start position onto the player once it will take one.
+    ///
+    /// `play()` returning isn't the same as the queue entry being ready: for a
+    /// moment after it the player still reports the top of the track and
+    /// quietly drops a `playbackTime` written to it, which is what left a song
+    /// opened at a marker starting from 0:00. So the write is repeated until
+    /// the player reads back somewhere near where it was sent, and given up on
+    /// after a second rather than fighting the user's own transport.
+    private func applyPendingStart() async {
+        guard let target = pendingStart else { return }
+        for _ in 0..<10 {
+            player.playbackTime = target
+            try? await Task.sleep(for: .milliseconds(100))
+            // Playing, so it will have moved on a little; anywhere at or past
+            // the target means the seek landed.
+            if player.playbackTime >= target - 0.5 { break }
+        }
+        pendingStart = nil
+        playbackTime = target
+        lastSeek = .now
+    }
+
     // MARK: - Markers
 
     /// Freezes the moment the user hit the mark button: pauses so the song
     /// doesn't run on while they name the marker, and hands back the playhead
     /// for the editor to open at.
     func pauseForMarking() -> TimeInterval {
-        auditionEnd = nil
         if isPlaying { player.pause() }
         return playbackTime
     }
 
-    /// Plays from `start` and stops at `end` — a quick listen to check a
-    /// handle is where you meant. At the current practice speed, since that's
-    /// the speed you'll be hearing it at.
-    func audition(from start: TimeInterval, to end: TimeInterval) {
-        seek(to: start)
-        auditionEnd = end
+    /// Drops the playhead at `time` and plays on from there, at the current
+    /// practice speed. The marker editor's cue buttons run through this: a
+    /// couple of seconds is long enough to tell you a handle landed but not
+    /// long enough to tell you how the passage sounds, so nothing stops the
+    /// playback but the user.
+    func playFrom(_ time: TimeInterval) {
+        userSeek(to: time)
         play()
     }
 
@@ -330,7 +365,6 @@ final class PlaybackController {
     /// rather than an escape: the chain picks the playhead up again when it
     /// plays back into one of its clips.
     func jump(to marker: SongMarker) {
-        auditionEnd = nil
         userSeek(to: marker.startTime)
     }
 
@@ -376,7 +410,6 @@ final class PlaybackController {
     /// adding to it: reaching for this means "just this bit, now".
     func playOnLoop(_ marker: SongMarker) {
         guard let end = marker.endTime else { return }
-        auditionEnd = nil
         setLoop(.clips([.init(markerID: marker.persistentModelID, start: marker.startTime, end: end)]))
         seek(to: marker.startTime)
         play()
