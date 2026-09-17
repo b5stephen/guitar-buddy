@@ -79,23 +79,29 @@ struct MarkerEditorView: View {
         )
     }
 
+    /// The end as a non-optional binding, for controls that can only deal in
+    /// a time. Reading it once the marker is a point again gives the start
+    /// rather than trapping, and writing to it then is dropped: a field being
+    /// torn off screen mustn't bring the end back.
+    private var endBinding: Binding<TimeInterval> {
+        Binding(get: { end ?? start }, set: { if end != nil { end = $0 } })
+    }
+
     /// The time the nudge row and Now act on. The end can't be selected on
     /// a point, so it falls back to the start.
     private var selectedTime: Binding<TimeInterval> {
         switch selected {
-        case .end where end != nil:
-            Binding(get: { end ?? start }, set: { end = $0 })
-        default:
-            $start
+        case .end where end != nil: endBinding
+        default: $start
         }
     }
 
     private var startRange: ClosedRange<TimeInterval> {
-        0...(end.map { $0 - SongMarker.minimumClipLength } ?? duration)
+        0...max(0, end.map { $0 - SongMarker.minimumClipLength } ?? duration)
     }
 
     private var endRange: ClosedRange<TimeInterval> {
-        (start + SongMarker.minimumClipLength)...duration
+        min(start + SongMarker.minimumClipLength, duration)...duration
     }
 
     private var selectedRange: ClosedRange<TimeInterval> {
@@ -187,7 +193,7 @@ struct MarkerEditorView: View {
     /// one to make it the time the nudges act on; tap the number to type.
     private var times: some View {
         HStack(spacing: 0) {
-            if let endBinding = Binding($end) {
+            if end != nil {
                 timeColumn("Start", time: $start, range: startRange, handle: .start)
                 Divider()
                 timeColumn("End", time: endBinding, range: endRange, handle: .end)
