@@ -419,10 +419,10 @@ struct PracticeView: View {
     private var messages: some View {
         VStack(spacing: 8) {
             if let warning = controller.rateWarning {
-                banner(warning, systemImage: "exclamationmark.triangle.fill", colour: .orange, opacity: 0.14)
+                banner(warning, systemImage: "exclamationmark.triangle.fill", icon: .yellow, background: .yellow.opacity(0.18))
             }
             if let error = controller.errorMessage {
-                banner(error, systemImage: "exclamationmark.circle.fill", colour: .red, opacity: 0.12)
+                banner(error, systemImage: "exclamationmark.circle.fill", icon: .accentColor, background: .gray.opacity(0.14))
             }
         }
         .padding(.horizontal, 16)
@@ -432,19 +432,19 @@ struct PracticeView: View {
     private func banner(
         _ text: String,
         systemImage: String,
-        colour: Color,
-        opacity: Double
+        icon: Color,
+        background: Color
     ) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: systemImage)
+                .foregroundStyle(icon)
             Text(text)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .font(.footnote)
-        .foregroundStyle(colour)
         .padding(.vertical, 10)
         .padding(.horizontal, 12)
-        .background(colour.opacity(opacity), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .background(background, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
     }
 }
 
@@ -604,13 +604,11 @@ private struct MarkGlyph: View {
         footnote: "Or open Saved to pick up where you left off."
     ) {}
         .padding(.vertical, 16)
-        .tint(.pink)
 }
 
 #Preview("Restoring") {
     RestoringState(diameter: 260)
         .padding(.vertical, 16)
-        .tint(.pink)
 }
 
 #Preview("No access") {
@@ -623,6 +621,5 @@ private struct MarkGlyph: View {
         footnote: "Settings › Music Momentum › Media & Apple Music"
     ) {}
         .padding(.vertical, 16)
-        .tint(.pink)
 }
 

@@ -386,7 +386,6 @@ private struct PreciseTimeField: View {
 
 #Preview("New") {
     MarkerEditorView(initialStart: 71, duration: 245, controller: PlaybackController()) { _, _, _ in }
-        .tint(.pink)
 }
 
 #Preview("Edit clip") {
@@ -395,6 +394,5 @@ private struct PreciseTimeField: View {
     container.mainContext.insert(song)
     let marker = SongMarker.add(to: song, name: "Solo", startTime: 96, endTime: 112.4, in: container.mainContext)
     return MarkerEditorView(marker: marker, duration: 245, controller: PlaybackController()) { _, _, _ in }
-        .tint(.pink)
         .modelContainer(container)
 }

@@ -241,6 +241,5 @@ private extension View {
 
         MarkerPills(markers: [], onTap: { _ in }, onAddMarker: {})
     }
-    .tint(.pink)
     .modelContainer(container)
 }

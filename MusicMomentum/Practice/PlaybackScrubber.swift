@@ -190,7 +190,6 @@ struct PlaybackScrubber: View {
             .init(id: "outro", start: 238, end: nil)
         ]
     ) { _ in }
-        .tint(.pink)
         .padding(.horizontal, 32)
 }
 
@@ -206,7 +205,6 @@ struct PlaybackScrubber: View {
             .init(id: "outro", start: 238, end: nil)
         ]
     ) { _ in }
-        .tint(.pink)
         .padding(.horizontal, 32)
 }
 
@@ -223,6 +221,5 @@ struct PlaybackScrubber: View {
             )
         }
     ) { _ in }
-        .tint(.pink)
         .padding(.horizontal, 32)
 }

@@ -301,5 +301,4 @@ struct SpeedWheelPicker: View {
     @Previewable @State var speed = 0.75
     SpeedWheelPicker(speed: $speed)
         .padding()
-        .tint(.pink)
 }

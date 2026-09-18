@@ -268,7 +268,6 @@ private struct Triangle: Shape {
     @Previewable @State var start: TimeInterval = 71
     @Previewable @State var end: TimeInterval? = 84.5
     MarkerRangeEditor(start: $start, end: $end, duration: 245, playhead: 75)
-        .tint(.pink)
         .padding()
 }
 
