@@ -34,8 +34,7 @@ struct PracticeView: View {
 
     var body: some View {
         // The gaps either side of the wheel absorb spare height; the screen only
-        // scrolls once they've given it all back. The bottom gap is capped so it
-        // lifts the transport off the tab bar without pulling it up the screen.
+        // scrolls once they've given it all back.
         GeometryReader { proxy in
             ScrollView {
                 VStack(spacing: 0) {
@@ -50,9 +49,6 @@ struct PracticeView: View {
                     }
 
                     messages
-
-                    Spacer(minLength: 0)
-                        .frame(maxHeight: 40)
                 }
                 .padding(.vertical, 16)
                 .frame(maxWidth: .infinity, minHeight: proxy.size.height)
@@ -106,14 +102,15 @@ struct PracticeView: View {
 
         transportControls
 
-        if let caption = loopCaption {
-            Text(caption)
-                .font(.footnote.weight(.medium))
-                .foregroundStyle(.tint)
-                .multilineTextAlignment(.center)
-                .padding(.top, 14)
-                .padding(.horizontal, 24)
-        }
+        // Always laid out so toggling the loop doesn't shift everything above it.
+        Text(loopCaption ?? " ")
+            .font(.footnote.weight(.medium))
+            .foregroundStyle(.tint)
+            .lineLimit(1)
+            .opacity(loopCaption == nil ? 0 : 1)
+            .accessibilityHidden(loopCaption == nil)
+            .padding(.top, 14)
+            .padding(.horizontal, 24)
     }
 
     private func wheelDiameter(width: CGFloat) -> CGFloat {
@@ -189,7 +186,6 @@ struct PracticeView: View {
         } label: {
             Image(systemName: "repeat")
                 .font(.system(size: 19, weight: .semibold))
-                .symbolEffect(.pulse, isActive: controller.isLoopOn)
                 .frame(width: 46, height: 46)
                 .background(
                     controller.isLoopOn ? AnyShapeStyle(.tint) : AnyShapeStyle(.quaternary),
