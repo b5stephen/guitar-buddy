@@ -37,9 +37,11 @@ struct ContentView: View {
 
     var body: some View {
         // Everything below the wheel is on fixed spacing and everything above
-        // it is one block, so the two gaps either side of the wheel are the
-        // only ones that stretch — spare height goes there, and the screen
-        // only starts scrolling once they've given back all they have.
+        // it is one block, so the gaps either side of the wheel are the ones
+        // that stretch — spare height goes there, and the screen only starts
+        // scrolling once they've given back all they have. The gap under it
+        // all stretches too, but only so far: enough to lift the bottom row
+        // off the tab bar on a tall phone, not enough to pull it up the screen.
         GeometryReader { proxy in
             ScrollView {
                 VStack(spacing: 0) {
@@ -52,6 +54,9 @@ struct ContentView: View {
                     }
 
                     messages
+
+                    Spacer(minLength: 0)
+                        .frame(maxHeight: 40)
                 }
                 .padding(.vertical, 16)
                 .frame(maxWidth: .infinity, minHeight: proxy.size.height)
