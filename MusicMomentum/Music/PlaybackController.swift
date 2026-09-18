@@ -79,8 +79,10 @@ final class PlaybackController {
     }
 
     /// Never prompts for access: an app that hasn't been authorised comes up
-    /// empty and waits for the user to reach for the library. A song that's
-    /// gone is forgotten; a lookup that merely failed keeps it for next time.
+    /// empty and waits for the user to reach for the library. Failing is
+    /// quiet: the user didn't ask for this song, so an empty screen is the
+    /// whole answer. A song that's gone is forgotten; a lookup that merely
+    /// failed keeps it for next time.
     private func restoreLastSong() async {
         guard selectedSong == nil, authorizationStatus == .authorized,
               let last = LastLoadedSong.stored
@@ -93,9 +95,11 @@ final class PlaybackController {
                 return
             }
             await select(song: song)
-        } catch {
-            errorMessage = "Couldn't bring back your last song: \(error.localizedDescription)"
-        }
+            if errorMessage != nil {
+                selectedSong = nil
+                errorMessage = nil
+            }
+        } catch {}
     }
 
     /// For coming back from the background, where the ticker couldn't keep up.
