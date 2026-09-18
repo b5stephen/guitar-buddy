@@ -103,7 +103,8 @@ struct MarkerPills: View {
 
         return HStack(spacing: 5) {
             glyph(marker)
-                .opacity(state == .looping ? 0.8 : 0.55)
+                .foregroundStyle(state == .cued ? AnyShapeStyle(.tint) : foreground(state))
+                .opacity(state == .idle ? 0.55 : 0.8)
             Text(marker.name)
                 .font(.footnote.weight(.medium))
                 .lineLimit(1)
@@ -116,8 +117,6 @@ struct MarkerPills: View {
         .padding(.horizontal, 11)
         .padding(.vertical, 7)
         .background(fill(state), in: Capsule())
-        // An overlay stroke so the cued state never changes the pill's size.
-        .overlay(Capsule().strokeBorder(.tint, lineWidth: state == .cued ? 1.5 : 0))
         .foregroundStyle(foreground(state))
     }
 
@@ -177,15 +176,16 @@ struct MarkerPills: View {
     private func fill(_ state: PillState) -> AnyShapeStyle {
         switch state {
         case .idle: AnyShapeStyle(.quaternary)
-        case .cued: AnyShapeStyle(.tint.opacity(0.14))
+        case .cued: AnyShapeStyle(.tint.opacity(0.12))
         case .looping: AnyShapeStyle(.tint)
         }
     }
 
+    /// Cued keeps the primary text so only the fill and glyph hint at it;
+    /// looping is the one state that shouts.
     private func foreground(_ state: PillState) -> AnyShapeStyle {
         switch state {
-        case .idle: AnyShapeStyle(.primary)
-        case .cued: AnyShapeStyle(.tint)
+        case .idle, .cued: AnyShapeStyle(.primary)
         case .looping: AnyShapeStyle(.white)
         }
     }
