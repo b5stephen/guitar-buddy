@@ -59,7 +59,7 @@ struct SongPickerView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(role: .close) { dismiss() }
                 }
                 if isSearching {
                     ToolbarItem(placement: .confirmationAction) { ProgressView() }
