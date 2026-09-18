@@ -124,17 +124,8 @@ extension SavedSong {
     }
 }
 
-// MARK: - Schema
-
-/// The one list of stored models; the app, previews and tests all build
-/// their containers from it.
-enum AppSchema {
-    static let models: [any PersistentModel.Type] = [SavedSong.self, SongMarker.self]
-
-    static func inMemoryContainer() throws -> ModelContainer {
-        try ModelContainer(
-            for: Schema(models),
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-        )
+extension SavedSong {
+    var sortedMarkers: [SongMarker] {
+        markers.sorted { $0.startTime < $1.startTime }
     }
 }

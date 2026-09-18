@@ -20,7 +20,7 @@ struct RootTabView: View {
     var body: some View {
         TabView(selection: $tab) {
             Tab("Practice", systemImage: "guitars", value: .practice) {
-                ContentView(controller: controller)
+                PracticeView(controller: controller)
             }
 
             Tab("Saved", systemImage: "bookmark", value: .saved) {

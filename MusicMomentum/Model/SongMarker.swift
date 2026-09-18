@@ -82,9 +82,3 @@ extension SongMarker {
         return "\(kind) \(siblings + 1)"
     }
 }
-
-extension SavedSong {
-    var sortedMarkers: [SongMarker] {
-        markers.sorted { $0.startTime < $1.startTime }
-    }
-}

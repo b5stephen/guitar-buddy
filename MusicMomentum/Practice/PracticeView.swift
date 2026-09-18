@@ -1,5 +1,5 @@
 //
-//  ContentView.swift
+//  PracticeView.swift
 //  MusicMomentum
 //
 
@@ -10,7 +10,7 @@ import SwiftUI
 import UIKit
 #endif
 
-struct ContentView: View {
+struct PracticeView: View {
     @Bindable var controller: PlaybackController
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
@@ -497,7 +497,7 @@ private struct ArrivalState: View {
 }
 
 /// The speed wheel's rim and teeth with a glyph where the number would be.
-struct DialSilhouette: View {
+private struct DialSilhouette: View {
     var diameter: CGFloat
     var systemImage: String
 
@@ -542,7 +542,7 @@ struct DialSilhouette: View {
 
 /// The point marker the track draws, with a plus. No SF Symbol says "put a
 /// mark here" — flag came closest and read as reporting a problem.
-struct MarkGlyph: View {
+private struct MarkGlyph: View {
     var body: some View {
         Canvas { context, size in
             let scale = size.width / 24
@@ -565,7 +565,7 @@ struct MarkGlyph: View {
 }
 
 #Preview {
-    ContentView(controller: PlaybackController())
+    PracticeView(controller: PlaybackController())
         .modelContainer(try! AppSchema.inMemoryContainer())
 }
 

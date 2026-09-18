@@ -8,10 +8,6 @@ import SwiftUI
 import UIKit
 #endif
 
-enum MarkerHandle {
-    case start, end
-}
-
 /// A zoomable strip of the track with drag handles for a marker's times.
 ///
 /// No waveform: Apple Music tracks are DRM-protected and neither MusicKit nor

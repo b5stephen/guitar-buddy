@@ -51,25 +51,6 @@ final class PlaybackController {
     /// a jump or scrub: the ticker waits until it plays back into the chain.
     private var loopIndex: Int?
 
-    /// Segments are copies of marker times, not the markers, so a deleted
-    /// marker can't leave a dangling model object here.
-    enum Loop: Equatable {
-        case wholeSong
-        /// In track order, played back to back.
-        case clips([Segment])
-
-        struct Segment: Equatable {
-            let markerID: PersistentIdentifier
-            let start: TimeInterval
-            let end: TimeInterval
-        }
-
-        var segments: [Segment] {
-            if case .clips(let segments) = self { return segments }
-            return []
-        }
-    }
-
     var playbackRate: Double = 1.0 {
         didSet {
             guard !isLoadingSavedSpeed else { return }
@@ -417,40 +398,5 @@ final class PlaybackController {
     func saveCurrentSong() -> SavedSong? {
         guard let modelContext, let song = selectedSong else { return nil }
         return SavedSong.save(song: song, speed: playbackRate, in: modelContext)
-    }
-}
-
-extension PlaybackController.Loop {
-    /// Pure and free of the player, so the wrap-around rules can be tested.
-    enum Step: Equatable {
-        case inside(Int)
-        case jump(to: Int)
-        /// Outside the chain with no clip to have left; leave the playhead be.
-        case wait
-    }
-
-    static func step(segments: [Segment], time: TimeInterval, current: Int?) -> Step {
-        // Checked first, so clips butted end to end hand over without a seek.
-        if let inside = segments.firstIndex(where: { time >= $0.start && time < $0.end }) {
-            return .inside(inside)
-        }
-        guard let current, current < segments.count, time >= segments[current].end else { return .wait }
-        return .jump(to: (current + 1) % segments.count)
-    }
-}
-
-/// `ApplicationMusicPlayer` isn't `Sendable`, and `play()` is `nonisolated
-/// async`, so awaiting it from a `@MainActor` type would send the player
-/// across an isolation boundary. `.shared` is a process-wide singleton only
-/// ever touched from the main actor, so routing the call through this box is safe.
-nonisolated private struct MusicPlayerBox: @unchecked Sendable {
-    let player: ApplicationMusicPlayer
-
-    nonisolated func play() async throws {
-        try await player.play()
-    }
-
-    nonisolated func prepareToPlay() async throws {
-        try await player.prepareToPlay()
     }
 }

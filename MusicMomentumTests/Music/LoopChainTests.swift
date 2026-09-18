@@ -24,7 +24,7 @@ struct LoopChainTests {
         )
     }
 
-    private func chain(_ ranges: [(TimeInterval, TimeInterval)]) -> [PlaybackController.Loop.Segment] {
+    private func chain(_ ranges: [(TimeInterval, TimeInterval)]) -> [Loop.Segment] {
         ranges.map { start, end in
             let marker = SongMarker.add(to: song, name: "", startTime: start, endTime: end, in: context)
             return .init(markerID: marker.persistentModelID, start: start, end: end)
@@ -32,11 +32,11 @@ struct LoopChainTests {
     }
 
     private func step(
-        _ segments: [PlaybackController.Loop.Segment],
+        _ segments: [Loop.Segment],
         at time: TimeInterval,
         current: Int?
-    ) -> PlaybackController.Loop.Step {
-        PlaybackController.Loop.step(segments: segments, time: time, current: current)
+    ) -> Loop.Step {
+        Loop.step(segments: segments, time: time, current: current)
     }
 
     @Test("The playhead inside a clip reports that clip")
