@@ -12,7 +12,7 @@ The simulator must run iOS ≥ 26.4 or the build is rejected with "doesn't match
 
 ## Layout
 
-`App/` entry point and tab shell · `Model/` SwiftData models · `Music/` everything that talks to MusicKit outside the UI · one folder per screen (`Practice/`, `Saved/`), with a flow only one screen presents nested inside it (`Practice/SongPicker/`). Promote a nested flow when a second screen presents it. No `Components/`, `Utilities/` or `Helpers/` folder until two screens actually share something, and then name the folder for what it holds, not for being shared. Folders are Xcode synchronized groups, so moving a file on disk is the whole job. Tests mirror `Model/` and `Music/`. Don't list screens here; the folder is the documentation.
+`App/` entry point and tab shell · `Model/` SwiftData models · `Music/` everything that talks to MusicKit outside the UI · one folder per screen (`Practice/`, `Saved/`), with a flow only one screen presents nested inside it (`Practice/SongPicker/`). Promote a nested flow when a second screen presents it. No `Components/`, `Utilities/` or `Helpers/` folder until two screens actually share something, and then name the folder for what it holds, not for being shared. Folders are Xcode synchronized groups, so moving a file on disk is the whole job. Tests mirror the source folders. Don't list screens here; the folder is the documentation.
 
 ## Rules the code can't enforce
 
@@ -27,5 +27,7 @@ The simulator must run iOS ≥ 26.4 or the build is rejected with "doesn't match
 
 - One non-private type per file, named after it. `private` helper views stay with the screen that owns them; if a second file needs one, drop `private` and move it to its own file.
 - Comments record only what the code can't say — a MusicKit quirk, a past bug, a non-obvious invariant. Don't narrate the code; when touching a file, delete comments that fail that test.
-- Unit tests are Swift Testing (`@Test`, `#expect`, `@MainActor @Suite`), each building its own in-memory `ModelContext` in `init()`. Only the UI test target uses XCTest.
+- Anything pure or model-only whose failure would silently corrupt data or misplace a marker gets a unit test: `Loop.step`, the model mutators, `PlayParameterIDs`, `PreciseTime`. `PlaybackController` and views are not unit-tested; don't mock the player to get there. Tests are Swift Testing (`@Test`, `#expect`), each building its own in-memory `ModelContext` in `init()`; the UI test target is still the Xcode template.
+- Pure helpers are `nonisolated` so tests can call them off the main actor.
+- Every view file has a `#Preview` per meaningful state (empty, loaded, error), built on `AppSchema.inMemoryContainer()`; trivial glyphs and rows can skip it.
 - Commit messages: sentence-case imperative title, then prose paragraphs on the behaviour change and what was wrong before (see `git log`). Commit and push directly on `main`.

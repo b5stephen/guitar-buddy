@@ -6,7 +6,7 @@
 import Foundation
 
 /// Tenth-of-a-second time strings, for placing a point on a beat.
-enum PreciseTime {
+nonisolated enum PreciseTime {
     /// `1:03.4`; hours only when the track needs them.
     static func format(_ seconds: TimeInterval) -> String {
         let tenths = Int((seconds * 10).rounded())
