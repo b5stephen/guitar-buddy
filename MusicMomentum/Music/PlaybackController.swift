@@ -22,6 +22,9 @@ final class PlaybackController {
     private var isLoadingSavedSpeed = false
 
     var selectedSong: Song?
+    /// True while last launch's song is being looked up, so the practice
+    /// screen can hold off showing "nothing loaded" for a song that's coming.
+    private(set) var isRestoringLastSong = false
     /// Read off the player, not mirrored: `MusicPlayer.State` is `Observable`
     /// (iOS 26.4), so this stays right when playback is started or stopped
     /// from outside the app.
@@ -72,6 +75,27 @@ final class PlaybackController {
         self.modelContext = modelContext
         readPlaybackTime()
         startTicking()
+        Task { await restoreLastSong() }
+    }
+
+    /// Never prompts for access: an app that hasn't been authorised comes up
+    /// empty and waits for the user to reach for the library. A song that's
+    /// gone is forgotten; a lookup that merely failed keeps it for next time.
+    private func restoreLastSong() async {
+        guard selectedSong == nil, authorizationStatus == .authorized,
+              let last = LastLoadedSong.stored
+        else { return }
+        isRestoringLastSong = true
+        defer { isRestoringLastSong = false }
+        do {
+            guard let song = try await SongLookup.song(libraryID: last.songID, catalogID: last.catalogID) else {
+                LastLoadedSong.forget()
+                return
+            }
+            await select(song: song)
+        } catch {
+            errorMessage = "Couldn't bring back your last song: \(error.localizedDescription)"
+        }
     }
 
     /// For coming back from the background, where the ticker couldn't keep up.
@@ -179,6 +203,7 @@ final class PlaybackController {
     /// play once the guitar is in their hands.
     func select(song: Song) async {
         selectedSong = song
+        LastLoadedSong.remember(song)
         loadSavedSpeed(for: song)
         errorMessage = nil
         rateWarning = nil

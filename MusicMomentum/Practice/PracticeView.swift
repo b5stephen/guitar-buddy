@@ -41,6 +41,8 @@ struct PracticeView: View {
                 VStack(spacing: 0) {
                     if controller.selectedSong != nil {
                         loadedSong(width: proxy.size.width)
+                    } else if controller.isRestoringLastSong {
+                        RestoringState(diameter: wheelDiameter(width: proxy.size.width))
                     } else if controller.canUseMusic {
                         noSong(width: proxy.size.width)
                     } else {
@@ -496,6 +498,29 @@ private struct ArrivalState: View {
     }
 }
 
+/// Last launch's song is on its way: the silhouette, with a spinner where the
+/// arrival copy goes, so a song landing looks the same as it does from the picker.
+private struct RestoringState: View {
+    var diameter: CGFloat
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 16)
+
+            DialSilhouette(diameter: diameter, systemImage: "music.note.list")
+
+            Spacer(minLength: 16)
+
+            ProgressView()
+                .controlSize(.large)
+                .accessibilityLabel("Loading your last song")
+
+            Spacer(minLength: 16)
+        }
+        .frame(maxHeight: .infinity)
+    }
+}
+
 /// The speed wheel's rim and teeth with a glyph where the number would be.
 private struct DialSilhouette: View {
     var diameter: CGFloat
@@ -578,6 +603,12 @@ private struct MarkGlyph: View {
         actionTitle: "Choose a Song",
         footnote: "Or open Saved to pick up where you left off."
     ) {}
+        .padding(.vertical, 16)
+        .tint(.pink)
+}
+
+#Preview("Restoring") {
+    RestoringState(diameter: 260)
         .padding(.vertical, 16)
         .tint(.pink)
 }
