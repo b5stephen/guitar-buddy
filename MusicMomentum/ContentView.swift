@@ -11,8 +11,6 @@ import UIKit
 #endif
 
 struct ContentView: View {
-    /// Owned by `RootTabView`, since the saved list drives it too. `@Bindable`
-    /// rather than `let` so the speed wheel can still bind to `playbackRate`.
     @Bindable var controller: PlaybackController
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
@@ -20,9 +18,8 @@ struct ContentView: View {
     @State private var showPicker = false
     @State private var markerSheet: MarkerSheet?
 
-    /// What the marker sheet is open for. `Identifiable` so `.sheet(item:)`
-    /// can drive it; editing gets the marker's own identity so switching
-    /// straight from one marker to another rebuilds the sheet.
+    /// Editing carries the marker's identity so switching straight from one
+    /// marker to another rebuilds the sheet.
     private enum MarkerSheet: Identifiable {
         case new(start: TimeInterval)
         case edit(SongMarker)
@@ -36,12 +33,9 @@ struct ContentView: View {
     }
 
     var body: some View {
-        // Everything below the wheel is on fixed spacing and everything above
-        // it is one block, so the gaps either side of the wheel are the ones
-        // that stretch — spare height goes there, and the screen only starts
-        // scrolling once they've given back all they have. The gap under it
-        // all stretches too, but only so far: enough to lift the bottom row
-        // off the tab bar on a tall phone, not enough to pull it up the screen.
+        // The gaps either side of the wheel absorb spare height; the screen only
+        // scrolls once they've given it all back. The bottom gap is capped so it
+        // lifts the transport off the tab bar without pulling it up the screen.
         GeometryReader { proxy in
             ScrollView {
                 VStack(spacing: 0) {
@@ -89,8 +83,6 @@ struct ContentView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            // The ticker was idle while we were backgrounded, so the playhead
-            // needs one read to catch up.
             if phase == .active { controller.refreshPlaybackTime() }
         }
     }
@@ -122,15 +114,10 @@ struct ContentView: View {
         }
     }
 
-    /// The wheel is drawn from one number, so it can simply be told a smaller
-    /// one on a narrow phone rather than being clipped by it.
     private func wheelDiameter(width: CGFloat) -> CGFloat {
         min(260, max(160, width - 130))
     }
 
-    /// The bar and, under it, the pills that name what the bar is drawing.
-    /// The two halves of one idea: where the markers fall, and which ones
-    /// they are.
     @ViewBuilder
     private var timeline: some View {
         VStack(spacing: 10) {
@@ -141,9 +128,6 @@ struct ContentView: View {
                 onScrub: { _ in controller.isScrubbing = true },
                 onCommit: { controller.endScrub(at: $0) }
             )
-            // Wider than the usual 16pt: the bar spans the full width, so it
-            // needs more breathing room off the edges than the centred
-            // content above it.
             .padding(.horizontal, 32)
 
             if let saved = savedSong, !saved.markers.isEmpty {
@@ -161,15 +145,8 @@ struct ContentView: View {
         }
     }
 
-    /// Loop, skip back, play/pause, skip forward, mark — the moves you make
-    /// over and over when drilling a passage, all on one row within reach of
-    /// one thumb. The two round buttons bookend it: what the loop is doing at
-    /// one end, and how to add to what it can loop at the other.
-    ///
-    /// Five controls, not six: an odd number is what puts play/pause dead
-    /// centre, and restart was the one that earned its place least — dragging
-    /// the playhead to the start does the same job, and a loop already
-    /// restarts itself.
+    /// Five controls, not six: an odd number puts play/pause dead centre.
+    /// Restart was dropped — dragging to the start does the same job.
     private var transportControls: some View {
         HStack(spacing: 0) {
             loopButton
@@ -198,16 +175,12 @@ struct ContentView: View {
             markButton
                 .frame(maxWidth: .infinity)
         }
-        // Five equal shares rather than a fixed gap: it keeps play/pause on
-        // the screen's centre line whatever the width, and the ends stay on
-        // a 390pt phone instead of being pushed off it.
+        // Equal shares rather than a fixed gap keeps play/pause on the centre
+        // line at any width, and the ends on screen on a 390pt phone.
         .frame(maxWidth: 430)
         .padding(.horizontal, 12)
     }
 
-    /// Turns looping on and off — the only control that does. With the button
-    /// on and nothing lit it's the whole track, which is what you want when
-    /// you're learning a song rather than drilling a passage.
     private var loopButton: some View {
         Button {
             controller.toggleLoop()
@@ -228,7 +201,6 @@ struct ContentView: View {
         .accessibilityAddTraits(controller.isLoopOn ? .isSelected : [])
     }
 
-    /// Mirrors the loop button at the other end of the row.
     private var markButton: some View {
         Button {
             markerSheet = .new(start: controller.pauseForMarking())
@@ -244,9 +216,6 @@ struct ContentView: View {
         .accessibilityLabel("Mark this point")
     }
 
-    /// What the loop is doing, said out loud under the transport. The pills
-    /// and the lit bands show the scope, but only in a row you may have
-    /// scrolled past — this is the one line that's always there.
     private var loopCaption: String? {
         guard let loop = controller.loop else { return nil }
         let segments = loop.segments
@@ -262,8 +231,7 @@ struct ContentView: View {
         }
     }
 
-    /// What the loop button is currently looping, for VoiceOver — the caption
-    /// below carries this visually, but it's a separate element to the button.
+    /// For VoiceOver: the caption is a separate element to the button.
     private var loopDescription: String {
         guard let loop = controller.loop else { return "Off" }
         let clips = loop.segments.count
@@ -276,10 +244,8 @@ struct ContentView: View {
 
     // MARK: - Markers
 
-    /// A pill or tag tap. With the loop off it's navigation, points and clips
-    /// alike. With it on, a clip goes in or out of the loop's scope instead —
-    /// the context menu's Jump to Start is there when you want to move without
-    /// reshaping a running loop.
+    /// With the loop off a tap navigates; with it on, a clip tap reshapes the
+    /// scope instead (the menu's Jump to Start still navigates).
     private func tapped(_ marker: SongMarker) {
         if controller.isLoopOn, marker.isClip {
             controller.toggleLoop(for: marker)
@@ -288,8 +254,7 @@ struct ContentView: View {
         }
     }
 
-    /// The playhead is inside this clip with the loop off: the clip the loop
-    /// button would pick up if you reached for it.
+    /// Playhead inside this clip with the loop off.
     private func isCued(_ marker: SongMarker) -> Bool {
         guard !controller.isLoopOn, let end = marker.endTime else { return false }
         return controller.playbackTime >= marker.startTime && controller.playbackTime < end
@@ -299,7 +264,6 @@ struct ContentView: View {
         savedSong?.markers.first { $0.persistentModelID == id as? PersistentIdentifier }
     }
 
-    /// The same markers, as the footprints the scrubber draws.
     private var scrubberMarkers: [PlaybackScrubber.Marker] {
         (savedSong?.sortedMarkers ?? []).map {
             .init(
@@ -311,9 +275,7 @@ struct ContentView: View {
         }
     }
 
-    /// Marking a song puts it on the saved list if it isn't there yet —
-    /// markers live on the saved entry, and a mark you couldn't get back to
-    /// would be no use.
+    /// Markers live on the saved entry, so marking an unsaved song saves it.
     private func addMarker(name: String, start: TimeInterval, end: TimeInterval?) {
         guard let song = savedSong ?? controller.saveCurrentSong() else { return }
         SongMarker.add(to: song, name: name, startTime: start, endTime: end, in: modelContext)
@@ -364,10 +326,6 @@ struct ContentView: View {
         .padding(.horizontal)
     }
 
-    /// Puts the current speed on the practice list. Deliberately not a toolbar
-    /// item: this screen has no `NavigationStack`, and its layout is tuned to
-    /// fit one screen. The label names the speed so the button says what it
-    /// will do without needing a confirmation step.
     @ViewBuilder
     private var saveChip: some View {
         let percent = Int((controller.playbackRate * 100).rounded())
@@ -389,9 +347,6 @@ struct ContentView: View {
         .disabled(isCurrent)
     }
 
-    /// Choosing a song is the first thing you do and then never again this
-    /// session, so once there's a song on screen it steps back to a chip
-    /// beside the save one rather than holding the prominent button.
     private var changeSongChip: some View {
         Button {
             Task { showPicker = await controller.requestAuthorizationIfNeeded() }
@@ -402,8 +357,6 @@ struct ContentView: View {
         .disabled(!controller.canUseMusic)
     }
 
-    /// The one chip shape both header buttons are cut from — a prompting chip
-    /// is the one there's a reason to tap right now.
     private func chipLabel(_ title: String, systemImage: String, isPrompting: Bool) -> some View {
         Label(title, systemImage: systemImage)
             .font(.footnote.weight(.medium))
@@ -416,9 +369,8 @@ struct ContentView: View {
             .foregroundStyle(isPrompting ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
     }
 
-    /// The saved entry for the song on screen, if it's on the list. Reads the
-    /// `@Query` results rather than fetching, so the button restyles itself the
-    /// moment the store changes — including from the Saved tab.
+    /// Reads the `@Query` results rather than fetching, so the chip restyles
+    /// the moment the store changes — including from the Saved tab.
     private var savedSong: SavedSong? {
         guard let songID = controller.selectedSong?.id.rawValue else { return nil }
         return savedSongs.first { $0.songID == songID }
@@ -426,7 +378,6 @@ struct ContentView: View {
 
     // MARK: - Arriving
 
-    /// No song yet.
     @ViewBuilder
     private func noSong(width: CGFloat) -> some View {
         ArrivalState(
@@ -437,15 +388,11 @@ struct ContentView: View {
             actionTitle: "Choose a Song",
             footnote: "Or open Saved to pick up where you left off."
         ) {
-            // Asking here, rather than at launch, means the system prompt
-            // lands on the tap that needs it.
             Task { showPicker = await controller.requestAuthorizationIfNeeded() }
         }
     }
 
-    /// The same screen, locked. Settings is the only place the decision can
-    /// actually be changed now, so the button goes there rather than asking
-    /// again for something the system will no longer prompt for.
+    /// Once denied the system won't prompt again, so the button goes to Settings.
     @ViewBuilder
     private func noAccess(width: CGFloat) -> some View {
         ArrivalState(
@@ -480,9 +427,6 @@ struct ContentView: View {
         .padding(.top, controller.rateWarning == nil && controller.errorMessage == nil ? 0 : 16)
     }
 
-    /// Bad news gets a shape of its own. Loose coloured text under a screen
-    /// this dense reads as part of the layout; a tinted block reads as
-    /// something that happened.
     private func banner(
         _ text: String,
         systemImage: String,
@@ -502,10 +446,8 @@ struct ContentView: View {
     }
 }
 
-/// A practice screen with no song in it. Built from the same bones as the
-/// loaded one — the same flexible gaps, the dial's own silhouette where the
-/// dial goes — so arriving at a song reads as this screen filling in rather
-/// than a different screen replacing it.
+/// The practice screen with no song: same flexible gaps, the dial's silhouette
+/// where the dial goes, so a song arriving reads as the screen filling in.
 private struct ArrivalState: View {
     var diameter: CGFloat
     var systemImage: String
@@ -549,17 +491,12 @@ private struct ArrivalState: View {
                 .padding(.top, 12)
                 .padding(.horizontal, 40)
         }
-        // Takes the whole height it's given, so its two gaps — not the stack
-        // around it — are what absorb the spare space, exactly as on the
-        // loaded screen.
+        // So its own gaps, not the stack around it, absorb the spare space.
         .frame(maxHeight: .infinity)
     }
 }
 
-/// The speed wheel with nothing to say: its rim and its teeth, no value arc,
-/// and a glyph where the number would be. It holds the practice screen's
-/// centre of gravity while there's nothing loaded, so the layout doesn't
-/// lurch when a song arrives.
+/// The speed wheel's rim and teeth with a glyph where the number would be.
 struct DialSilhouette: View {
     var diameter: CGFloat
     var systemImage: String
@@ -603,9 +540,8 @@ struct DialSilhouette: View {
     }
 }
 
-/// The mark button's glyph: the point marker the track draws, with a plus
-/// beside it. No SF Symbol says "put a mark *here*" — flag came closest and
-/// read as reporting a problem.
+/// The point marker the track draws, with a plus. No SF Symbol says "put a
+/// mark here" — flag came closest and read as reporting a problem.
 struct MarkGlyph: View {
     var body: some View {
         Canvas { context, size in

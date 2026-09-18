@@ -2,13 +2,8 @@
 //  SongPickerView.swift
 //  MusicMomentum
 //
-//  NOTE: The project brief calls for the `.musicPicker` SwiftUI modifier, which
-//  still doesn't exist in the iOS 26.5 SDK this project builds against (nothing
-//  named `musicPicker` appears anywhere in MusicKit, and MusicKit ships no
-//  SwiftUI views beyond `ArtworkImage`). This view stands in for it: one sheet
-//  that searches the Apple Music catalog and both searches *and* browses the
-//  user's own library. Swap it out for `.musicPicker` if and when the modifier
-//  ships — `ContentView` only needs a `Song?` back either way.
+//  Stands in for a `.musicPicker` modifier MusicKit doesn't ship (as of the
+//  iOS 26.5 SDK it has no SwiftUI views beyond `ArtworkImage`).
 //
 
 import MusicKit
@@ -16,10 +11,6 @@ import SwiftData
 import SwiftUI
 
 struct SongPickerView: View {
-    /// Called with the song the user taps; the sheet dismisses itself
-    /// afterwards. A closure rather than a binding because callers do different
-    /// things with the result — the practice screen plays it, the saved list
-    /// saves it.
     let onSelect: (Song) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -42,8 +33,6 @@ struct SongPickerView: View {
                 if let searchError {
                     SearchMessage(kind: .failed(searchError))
                 } else if searchTerm.isEmpty, scope == .library {
-                    // No term yet, so there's nothing to search — offer the
-                    // library itself instead of an empty "type something" page.
                     LibraryBrowseView { song in
                         onSelect(song)
                         dismiss()
@@ -58,9 +47,7 @@ struct SongPickerView: View {
                             onSelect(song)
                             dismiss()
                         } label: {
-                            // The album is what tells four recordings of the
-                            // same song apart, which is most of what a search
-                            // for a well-covered song comes back with.
+                            // The album is what tells recordings of one song apart.
                             SongRow(song: song, showsAlbum: true)
                         }
                         .buttonStyle(.plain)
@@ -93,7 +80,6 @@ struct SongPickerView: View {
         }
     }
 
-    /// Debounced search across whichever source is selected.
     private func runSearch() async {
         let term = searchTerm.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !term.isEmpty else {
@@ -102,7 +88,6 @@ struct SongPickerView: View {
             return
         }
 
-        // Let fast typing coalesce; cancellation here just skips the request.
         try? await Task.sleep(for: .milliseconds(300))
         guard !Task.isCancelled else { return }
 
@@ -129,20 +114,15 @@ struct SongPickerView: View {
         }
     }
 
-    /// Combined identity so `.task(id:)` restarts on either input changing.
     private struct SearchKey: Equatable {
         let term: String
         let scope: SearchScope
     }
 }
 
-/// What the picker says when it has no list to show. All three say the same
-/// thing about the other source, since the two scopes are the sheet's only real
-/// choice and every one of these states is a reason to try the other one.
 private struct SearchMessage: View {
     enum Kind {
-        /// The catalog before anything is typed. The library has no equivalent:
-        /// it can be browsed, so it never has to wait for a term.
+        /// Catalog only; the library is browsed instead.
         case prompt
         case noResults(String)
         case failed(String)
@@ -174,12 +154,8 @@ private struct SearchMessage: View {
     }
 }
 
-/// Shared with `LibraryBrowseView`, which lists songs the same way.
 struct SongRow: View {
     let song: Song
-    /// Names the album after the artist. Off where the list is already one
-    /// album's worth of songs and saying so on every row tells the user
-    /// nothing.
     var showsAlbum = false
 
     var body: some View {

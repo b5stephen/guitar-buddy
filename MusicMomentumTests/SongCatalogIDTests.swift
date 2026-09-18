@@ -8,12 +8,8 @@ import MusicKit
 import Testing
 @testable import MusicMomentum
 
-/// Reading a catalog ID out of `PlayParameters`, which is how a saved song
-/// survives being removed from the user's library.
-///
-/// `Song` can't be built in a test — MusicKit ships no public initialiser — but
-/// `PlayParameters` is `Codable`, so the part that actually decides anything
-/// can be fed the exact JSON Apple Music sends.
+/// `Song` can't be built in a test, but `PlayParameters` is `Codable`, so the
+/// part that decides anything can be fed the exact JSON Apple Music sends.
 @Suite("Catalog IDs")
 struct SongCatalogIDTests {
     private func ids(_ json: String) throws -> PlayParameterIDs {
@@ -34,18 +30,16 @@ struct SongCatalogIDTests {
         #expect(ids.catalogID == "1440857781")
     }
 
-    /// The case the `isLibrary` flag is there for: a song the user imported
-    /// themselves has no catalog counterpart, and handing back its library ID
-    /// would store an ID no catalog lookup can ever match.
+    /// A self-imported song has no catalog counterpart; handing back its
+    /// library ID would store one no catalog lookup can match.
     @Test("A library-only song has no catalog ID")
     func libraryOnlySong() throws {
         let ids = try ids(#"{"id": "i.gFKW1vJUkkV8ZR", "kind": "song", "isLibrary": true}"#)
         #expect(ids.catalogID == nil)
     }
 
-    /// Guards the side door itself: we read these fields by encoding
-    /// `PlayParameters` back to JSON, which only works while MusicKit keeps
-    /// passing Apple Music's keys through untouched.
+    /// Guards the side door: this only works while MusicKit keeps passing
+    /// Apple Music's keys through untouched.
     @Test("The fields survive a round trip through PlayParameters")
     func roundTripsThroughPlayParameters() throws {
         let json = #"{"id": "i.gFKW1vJUkkV8ZR", "kind": "song", "isLibrary": true, "catalogId": "1440857781"}"#

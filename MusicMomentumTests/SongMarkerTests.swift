@@ -8,8 +8,6 @@ import SwiftData
 import Testing
 @testable import MusicMomentum
 
-/// The storage rules for points and clips, and the time parsing behind the
-/// editor's typed fields.
 @MainActor
 @Suite("Song markers")
 struct SongMarkerTests {

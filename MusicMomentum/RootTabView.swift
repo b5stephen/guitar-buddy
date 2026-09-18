@@ -6,13 +6,8 @@
 import SwiftData
 import SwiftUI
 
-/// The app's top level: practice on one tab, the songs you've saved on the
-/// other. `TabView` keeps both tabs alive, so switching away from practice
-/// doesn't tear down playback state.
-///
-/// The `PlaybackController` lives here rather than inside the practice screen
-/// because both tabs need it — tapping a saved song has to hand it to the
-/// player and then bring the practice tab forward.
+/// Owns the one `PlaybackController`: both tabs need it, and `TabView` keeps
+/// the practice tab alive so switching away doesn't tear down playback.
 struct RootTabView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var controller = PlaybackController()

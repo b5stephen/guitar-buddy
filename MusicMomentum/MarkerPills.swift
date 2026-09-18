@@ -6,54 +6,30 @@
 import SwiftData
 import SwiftUI
 
-/// A song's markers as a row of small pills, in track order — under the
-/// scrubber on the practice screen, under the song on the saved list.
+/// A song's markers as a row of pills. Kind is carried by the glyph alone
+/// (dot for a point, span for a clip); the fill means only state.
 ///
-/// Every pill is the same capsule, whatever it is and whatever it's doing.
-/// Kind is carried by the glyph alone — a dot for a point, a span bar for a
-/// clip — so a row of mixed markers reads as one set of objects rather than
-/// two competing ones, and the fill is left free to mean only state: idle,
-/// cued under the playhead, or lit because it's in the running loop.
-///
-/// Everything past the tap is optional, since the saved list has no loop to
-/// put a clip in — what a tap means is the caller's to decide, and the long
-/// press carries whatever else that screen can do with a marker.
+/// Everything past the tap is optional, since the saved list has no loop.
 struct MarkerPills: View {
     let markers: [SongMarker]
-    /// Leading and trailing inset, to line the row up with whatever it sits
-    /// under. The row still scrolls edge to edge.
+    /// Content margins; the row still scrolls edge to edge.
     var inset: CGFloat = 32
-    /// Overrides the leading inset, for a row that follows something pinned
-    /// outside it and needs only a gap rather than the full margin.
     var leadingInset: CGFloat?
-    /// Whether this clip is in the running loop's scope, so the pill can show
-    /// it lit.
     var isLooping: (SongMarker) -> Bool = { _ in false }
-    /// Whether the playhead is sitting inside this clip while the loop is off
-    /// — the clip you'd be drilling if you turned the loop on.
+    /// Playhead inside this clip while the loop is off.
     var isCued: (SongMarker) -> Bool = { _ in false }
-    /// Tapping a point jumps to it. Tapping a clip jumps to its start too,
-    /// unless a loop is running, in which case it goes in or out of scope.
     var onTap: (SongMarker) -> Void
-    /// Loops this clip alone and starts playing it. Clips only, and absent
-    /// wherever there's no loaded song to play.
     var onPlayLoop: ((SongMarker) -> Void)?
-    /// What the long press calls the jump. The practice screen moves its own
-    /// playhead; the saved list loads the song and goes to the practice
-    /// screen, which is a bigger move and has to say so.
+    /// The saved list's jump loads the song and changes tab, so it says so.
     var jumpTitle: String = "Jump to Start"
     var onJump: ((SongMarker) -> Void)?
     var onEdit: ((SongMarker) -> Void)?
     var onDelete: ((SongMarker) -> Void)?
-    /// Adds a marker to this song. When it's there the row ends with a Mark
-    /// pill, so a song with no markers at all still offers the row's one
-    /// useful action in the place the markers would be.
+    /// When set, the row ends with a Mark pill.
     var onAddMarker: (() -> Void)?
 
-    /// Scaled with the label beside it, for the same reason the span bar is.
     @ScaledMetric(relativeTo: .footnote) private var dotSize: CGFloat = 6
 
-    /// How a pill is drawn. The kind doesn't come into it — that's the glyph.
     private enum PillState {
         case idle, cued, looping
     }
@@ -75,9 +51,8 @@ struct MarkerPills: View {
         .contentMargins(.trailing, inset, for: .scrollContent)
     }
 
-    /// One pill: tap for what the screen makes of a tap, long press for the
-    /// rest, and the same VoiceOver actions either way — a long press isn't
-    /// reachable from there.
+    /// The VoiceOver actions hang off here so both branches of `pillControl`
+    /// share them.
     private func pill(_ marker: SongMarker) -> some View {
         pillControl(marker)
             .buttonStyle(.plain)
@@ -97,16 +72,10 @@ struct MarkerPills: View {
             }
     }
 
-    /// The control under the pill — which is the only thing the long press
-    /// changes, so everything shared hangs off `pill(_:)` above instead.
-    ///
-    /// A `Menu` with a primary action rather than `.contextMenu`, because a
-    /// context menu declared inside a `List` row is hoisted to the whole cell.
-    /// On the saved list that gave the row one menu instead of one per pill —
-    /// it opened from anywhere in the row, lifted the whole rectangle, and ran
-    /// the *first* marker's actions whichever pill you pressed, which is what
-    /// made "Practice From Here" always land on the first marker. A menu
-    /// button belongs to the pill it's drawn on, in a list or out of one.
+    /// A `Menu` with a primary action rather than `.contextMenu`: a context
+    /// menu declared inside a `List` row is hoisted to the whole cell, so on
+    /// the saved list every pill shared one menu that ran the *first* marker's
+    /// actions whichever pill you pressed.
     @ViewBuilder
     private func pillControl(_ marker: SongMarker) -> some View {
         if hasMenu(for: marker) {
@@ -118,13 +87,10 @@ struct MarkerPills: View {
                 onTap(marker)
             }
         } else {
-            // Nothing behind the long press on this screen, so there's no menu
-            // to put the tap inside.
             Button { onTap(marker) } label: { pillLabel(marker) }
         }
     }
 
-    /// Whether the long press has anything to offer for this marker.
     private func hasMenu(for marker: SongMarker) -> Bool {
         (marker.isClip && onPlayLoop != nil)
             || onJump != nil
@@ -150,16 +116,13 @@ struct MarkerPills: View {
         .padding(.horizontal, 11)
         .padding(.vertical, 7)
         .background(fill(state), in: Capsule())
-        // Stroked rather than bordered so joining the loop never changes
-        // the pill's size and reflows the row around it.
+        // An overlay stroke so the cued state never changes the pill's size.
         .overlay(Capsule().strokeBorder(.tint, lineWidth: state == .cued ? 1.5 : 0))
         .foregroundStyle(foreground(state))
     }
 
     @ViewBuilder
     private func menuItems(_ marker: SongMarker) -> some View {
-        // First, and above Jump: it's the stronger form of the same
-        // intent, and the quickest way to drill one clip.
         if let onPlayLoop, marker.isClip {
             Button { onPlayLoop(marker) } label: { Label("Play on Loop", systemImage: "repeat") }
         }
@@ -174,9 +137,7 @@ struct MarkerPills: View {
         }
     }
 
-    /// The row's tail. Outlined rather than filled, because it isn't a marker
-    /// — it's the invitation to make one, and it shouldn't read as an idle
-    /// pill sitting among the real ones.
+    /// Outlined rather than filled so it doesn't read as an idle marker.
     private func markPill(_ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 5) {
@@ -203,7 +164,6 @@ struct MarkerPills: View {
         }
     }
 
-    /// A clip says how long it is; a point has no length to say.
     private func clipLength(_ marker: SongMarker) -> String? {
         guard let end = marker.endTime else { return nil }
         return PlaybackScrubber.lengthLabel(max(0, end - marker.startTime))
@@ -240,13 +200,11 @@ struct MarkerPills: View {
     }
 }
 
-/// The clip glyph: a rule between two uprights, the shape a passage makes on
-/// the track above. Drawn rather than borrowed from SF Symbols, none of which
-/// reads as a span at this size without also reading as an arrow.
+/// The clip glyph. No SF Symbol reads as a span at this size without also
+/// reading as an arrow.
 struct SpanGlyph: View {
-    /// Tied to the label beside it, because the glyph is now the only thing
-    /// telling a clip from a point: a 10pt mark next to accessibility-sized
-    /// type would give that difference away exactly where it's needed most.
+    /// Scaled with the label: the glyph is the only thing telling a clip from
+    /// a point, so it can't stay 10pt next to accessibility-sized type.
     @ScaledMetric(relativeTo: .footnote) private var width: CGFloat = 10
 
     var body: some View {
@@ -270,8 +228,6 @@ struct SpanGlyph: View {
 }
 
 private extension View {
-    /// Applies a modifier only when its optional input is there — for the
-    /// accessibility actions that exist only where the caller handles them.
     @ViewBuilder
     func ifLet<T>(_ value: T?, @ViewBuilder transform: (Self, T) -> some View) -> some View {
         if let value { transform(self, value) } else { self }

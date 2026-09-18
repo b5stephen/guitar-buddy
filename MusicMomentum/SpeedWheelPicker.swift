@@ -8,40 +8,26 @@ import SwiftUI
 import UIKit
 #endif
 
-/// A circular scroll wheel for dialling in practice speed — drag anywhere on
-/// the wheel and it turns under your finger, one detent per percent, with a
-/// haptic click on every one. The current value sits in the middle.
-///
-/// The wheel itself is unbounded: it keeps spinning as long as you keep
-/// turning. What stops is the value, and the arc around the rim is what shows
-/// it stopping — it fills as the speed climbs and simply holds at either end
-/// while the wheel carries on under your finger.
+/// A rotary wheel for practice speed, one haptic detent per percent. The
+/// wheel itself never clamps — it keeps turning under the finger at either
+/// limit — only the value and the arc around the rim do.
 struct SpeedWheelPicker: View {
     @Binding var speed: Double
 
-    /// Overall size of the wheel. The rim, ticks and type all scale from it.
     var diameter: CGFloat = 260
 
-    /// Percent bounds, kept as integers so tick generation and snapping never
-    /// drift on floating-point arithmetic.
+    /// Integers so tick generation and snapping never drift on float arithmetic.
     private let minPercent = 30
     private let maxPercent = 100
 
-    /// How far the wheel turns for one percent — one detent per tick, 90 ticks
-    /// to a full revolution. Dense enough to feel geared, coarse enough that a
-    /// fingertip can still land on a single one.
     private let degreesPerPercent: Double = 4
 
-    /// Where the wheel is pointing, in degrees. Free-running and unbounded:
-    /// unlike the value, it never clamps, so the wheel always follows the
-    /// finger even once the speed has stopped moving.
+    /// Unbounded, unlike the value.
     @State private var wheelAngle: Double = 0
-    /// Live, unrounded value while a drag is in flight. Clamped on every
-    /// update, so reversing out of a limit responds immediately rather than
-    /// waiting for an overshoot to unwind.
+    /// Live, unrounded value during a drag. Clamped on every update so
+    /// reversing out of a limit responds immediately.
     @State private var dragPercent: Double?
-    /// Touch angle at the last gesture update, in degrees. `nil` whenever the
-    /// finger is inside the hub, where the angle is too unstable to track.
+    /// `nil` while the finger is inside the hub, where the angle is unstable.
     @State private var lastTouchAngle: Double?
 
     #if canImport(UIKit)
@@ -55,12 +41,9 @@ struct SpeedWheelPicker: View {
                 .frame(width: diameter, height: diameter)
                 .contentShape(.circle)
                 .gesture(rotationGesture)
-                // The rotation gesture has `minimumDistance: 0`, so it claims
-                // the touch the instant a finger lands and an ordinary
-                // `.onTapGesture` never gets a look in. Recognising the tap
-                // simultaneously lets both see the same touches; a double tap
-                // moves no distance, so the drag it also triggers commits the
-                // value unchanged and does no harm.
+                // The drag gesture has `minimumDistance: 0`, so a plain
+                // `.onTapGesture` never fires. The drag a double tap also
+                // triggers moves no distance and commits the value unchanged.
                 .simultaneousGesture(TapGesture(count: 2).onEnded { reset() })
 
             Text("Turn the wheel to adjust — double-tap for 100%")
@@ -92,7 +75,6 @@ struct SpeedWheelPicker: View {
         }
     }
 
-    /// The dished face the wheel sits in.
     private var rim: some View {
         Circle()
             .fill(
@@ -114,10 +96,6 @@ struct SpeedWheelPicker: View {
             )
     }
 
-    /// The fixed arc around the rim: the whole travel of the speed, drawn once
-    /// as an unfilled track and again as the distance covered so far. This is
-    /// the only thing that stops at the limits, so it's what tells you the
-    /// wheel has run out of value to give.
     private var gauge: some View {
         Canvas { context, size in
             let center = CGPoint(x: size.width / 2, y: size.height / 2)
@@ -130,8 +108,6 @@ struct SpeedWheelPicker: View {
             )
             context.stroke(
                 arc(center: center, radius: radius, to: ringPercent),
-                // `.style` rather than a literal colour so the arc resolves the tint
-                // it's drawn inside, the way every other control here does.
                 with: .style(.tint),
                 style: StrokeStyle(lineWidth: 6, lineCap: .round)
             )
@@ -139,9 +115,6 @@ struct SpeedWheelPicker: View {
         .animation(isDragging ? nil : .snappy(duration: 0.35), value: ringPercent)
     }
 
-    /// The turning part: one tooth per percent, every fifth one longer. They're
-    /// evenly spaced the whole way round, so the wheel reads the same however
-    /// far it has been spun.
     private var teeth: some View {
         Canvas { context, size in
             let center = CGPoint(x: size.width / 2, y: size.height / 2)
@@ -163,7 +136,6 @@ struct SpeedWheelPicker: View {
         }
     }
 
-    /// The raised centre disc carrying the readout.
     private var hub: some View {
         ZStack {
             Circle()
@@ -202,15 +174,12 @@ struct SpeedWheelPicker: View {
                 let dx = value.location.x - centre.x
                 let dy = value.location.y - centre.y
 
-                // Inside the hub the angle swings wildly for tiny movements,
-                // so drop the reference and wait for the finger to come out.
                 guard hypot(dx, dy) > diameter * 0.22 else {
                     lastTouchAngle = nil
                     return
                 }
 
-                // Screen y grows downwards, so atan2 grows clockwise — which
-                // is the direction that should raise the speed.
+                // Screen y grows downwards, so atan2 grows clockwise.
                 let angle = atan2(dy, dx) * 180 / .pi
 
                 guard let previous = lastTouchAngle else {
@@ -235,8 +204,7 @@ struct SpeedWheelPicker: View {
             }
     }
 
-    /// Signed degrees from `previous` to `current`, wrapped into ±180 so a drag
-    /// across the 3 o'clock seam doesn't read as a full turn backwards.
+    /// Wrapped into ±180 so crossing the 3 o'clock seam isn't a full turn back.
     private func shortestDelta(from previous: Double, to current: Double) -> Double {
         var delta = current - previous
         while delta > 180 { delta -= 360 }
@@ -250,25 +218,19 @@ struct SpeedWheelPicker: View {
 
     private var currentPercent: Int { clamp(Int((speed * 100).rounded())) }
 
-    /// Rounded value on show in the hub.
     private var displayPercent: Int {
         dragPercent.map { clamp(Int($0.rounded())) } ?? currentPercent
     }
 
-    /// Unrounded value the gauge is drawn at, so the arc grows smoothly rather
-    /// than stepping tick to tick.
+    /// Unrounded, so the arc grows smoothly rather than stepping.
     private var ringPercent: Double { dragPercent ?? Double(currentPercent) }
 
-    /// Distance from the view's edge to the centre of the gauge track.
     private var inset: CGFloat { 12 }
 
-    /// Total sweep of the gauge, and where it starts. Screen angles run 0° at
-    /// 3 o'clock and grow clockwise, so 90° is straight down: the unused arc is
-    /// centred there, splitting the gap evenly at the bottom of the face.
+    /// Screen angles run 0° at 3 o'clock, clockwise, so the gap is centred on 90°.
     private var sweep: Double { 284 }
     private var startAngle: Double { 90 + (360 - sweep) / 2 }
 
-    /// The gauge arc from the low end of the range up to `percent`.
     private func arc(center: CGPoint, radius: CGFloat, to percent: Double) -> Path {
         var path = Path()
         let travelled = (percent - Double(minPercent)) / Double(maxPercent - minPercent) * sweep
@@ -293,10 +255,8 @@ struct SpeedWheelPicker: View {
         min(max(percent, minPercent), maxPercent)
     }
 
-    /// Advances the live value by a fraction of a percent, clicking once per
-    /// whole percent crossed and once, harder, on arrival at either end. Past
-    /// that the wheel keeps turning in silence — a knob against its stop has
-    /// nothing left to say, and the quiet is the clearest way to say it.
+    /// Clicks once per whole percent crossed and once, harder, on reaching a
+    /// limit; past that the wheel turns in silence.
     private func update(by amount: Double) {
         let previous = dragPercent ?? Double(currentPercent)
         let clamped = min(max(previous + amount, Double(minPercent)), Double(maxPercent))
@@ -307,7 +267,6 @@ struct SpeedWheelPicker: View {
         if isAtLimit(clamped), !isAtLimit(previous) {
             limit.impactOccurred()
         } else if displayPercent != before {
-            // Haptics only fire on a real device — the simulator stays silent.
             tick.impactOccurred(intensity: 0.45)
         }
         #endif
@@ -319,7 +278,6 @@ struct SpeedWheelPicker: View {
         percent <= Double(minPercent) || percent >= Double(maxPercent)
     }
 
-    /// Writes a final, snapped value back to the binding.
     private func commit(_ raw: Double) {
         let snapped = clamp(Int(raw.rounded()))
         guard snapped != currentPercent else { return }
@@ -343,7 +301,5 @@ struct SpeedWheelPicker: View {
     @Previewable @State var speed = 0.75
     SpeedWheelPicker(speed: $speed)
         .padding()
-        // Tinted off the default so the value arc is visibly following the
-        // tint rather than happening to match it.
         .tint(.pink)
 }

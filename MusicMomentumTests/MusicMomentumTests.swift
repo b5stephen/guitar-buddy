@@ -10,14 +10,10 @@ import SwiftData
 import Testing
 @testable import MusicMomentum
 
-/// The storage rules behind the saved list. These are the parts of the feature
-/// worth testing: the views need a simulator and `SongLookup` needs a real
-/// Apple Music entitlement, but getting the upsert wrong here silently
-/// destroys speeds the user tuned by hand.
+/// Getting the upsert wrong silently destroys speeds the user tuned by hand.
 @MainActor
 @Suite("Saved songs")
 struct SavedSongTests {
-    /// A fresh in-memory store per test, so nothing leaks between them.
     private let context: ModelContext
 
     init() throws {
@@ -86,21 +82,17 @@ struct SavedSongTests {
         #expect(song.catalogID == "1440857781")
     }
 
-    /// The pair of IDs is what lets a saved song still be found after the user
-    /// takes it out of their library, which orphans the library ID.
     @Test("Saving keeps the catalog ID alongside the library one")
     func savesCatalogID() throws {
         save("i.1", catalogID: "1440857781")
         #expect(try allSongs()[0].catalogID == "1440857781")
     }
 
-    /// The rule behind `SavedSongsView.add`: re-adding a song the user has
-    /// already tuned must not throw away the speed they set.
+    /// The rule behind `SavedSongsView.add`.
     @Test("Adding an already-saved song keeps its tuned speed")
     func addingExistingSongKeepsSpeed() throws {
         save("i.1", speed: 0.6)
 
-        // What the add path does when the song is already on the list.
         let existing = try #require(SavedSong.find(songID: "i.1", in: context))
         SavedSong.touch(existing, in: context)
 
@@ -118,13 +110,11 @@ struct SavedSongTests {
 
     @Test("The list sorts most recently practised first")
     func sortsByLastPracticed() throws {
-        // Explicit dates rather than three saves in a row: the clock may not
-        // tick between them, and a tie makes the expected order arbitrary.
+        // Explicit dates: the clock may not tick between three saves in a row.
         save("i.1", title: "First").lastPracticed = .now.addingTimeInterval(-300)
         save("i.2", title: "Second").lastPracticed = .now.addingTimeInterval(-200)
         save("i.3", title: "Third").lastPracticed = .now.addingTimeInterval(-100)
 
-        // Practising the oldest again should move it to the top.
         let first = try #require(SavedSong.find(songID: "i.1", in: context))
         SavedSong.touch(first, in: context)
 

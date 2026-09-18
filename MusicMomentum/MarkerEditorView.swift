@@ -6,14 +6,10 @@
 import SwiftData
 import SwiftUI
 
-/// The sheet for placing or adjusting a marker: a name, a start time, an
-/// optional end time, and the zoomable strip for dragging either into place.
-///
-/// Nothing is written until Save. The view doesn't know about the store at
-/// all — it reports what the user settled on and the caller decides where it
-/// goes, which keeps the storage rules in one place and this view previewable.
+/// The sheet for placing or adjusting a marker. Nothing is written until
+/// Save, and the view never touches the store: it reports what the user
+/// settled on and the caller decides where it goes.
 struct MarkerEditorView: View {
-    /// The marker being edited, or `nil` when placing a new one.
     let marker: SongMarker?
     let duration: TimeInterval
     let controller: PlaybackController
@@ -28,10 +24,8 @@ struct MarkerEditorView: View {
     /// Which time the nudge row and Now act on.
     @State private var selected: MarkerHandle = .start
 
-    /// How far before a handle a cue button drops the playhead, so you hear
-    /// the run-up to it rather than starting on top of it.
+    /// How far before the end handle the End cue drops the playhead.
     private static let leadIn: TimeInterval = 2
-    /// The end time a clip starts life with, before the user drags it.
     private static let defaultClipLength: TimeInterval = 4
 
     init(
@@ -60,8 +54,6 @@ struct MarkerEditorView: View {
         case point, clip
     }
 
-    /// Point or clip, as a switch. Going to clip gives the marker a short end
-    /// to drag from; going back to point drops it.
     private var kind: Binding<Kind> {
         Binding(
             get: { end == nil ? .point : .clip },
@@ -80,16 +72,12 @@ struct MarkerEditorView: View {
         )
     }
 
-    /// The end as a non-optional binding, for controls that can only deal in
-    /// a time. Reading it once the marker is a point again gives the start
-    /// rather than trapping, and writing to it then is dropped: a field being
+    /// Writes are dropped once the marker is a point again: a field being
     /// torn off screen mustn't bring the end back.
     private var endBinding: Binding<TimeInterval> {
         Binding(get: { end ?? start }, set: { if end != nil { end = $0 } })
     }
 
-    /// The time the nudge row and Now act on. The end can't be selected on
-    /// a point, so it falls back to the start.
     private var selectedTime: Binding<TimeInterval> {
         switch selected {
         case .end where end != nil: endBinding
@@ -120,8 +108,6 @@ struct MarkerEditorView: View {
                     }
                 }
 
-                // The strip first: it's the control that does most of the
-                // work, so it shouldn't be the one you scroll to.
                 Section {
                     MarkerRangeEditor(
                         start: $start,
@@ -184,9 +170,7 @@ struct MarkerEditorView: View {
         }
     }
 
-    /// Point or clip, drawn as the two pills themselves rather than as a
-    /// segmented control: the choice is what the marker will look like in the
-    /// row under the scrubber, so it may as well show you.
+    /// Drawn as the pills themselves, since that's what the choice looks like.
     private var kindSwitch: some View {
         HStack(spacing: 6) {
             kindButton(.point, title: "Point") {
@@ -229,8 +213,6 @@ struct MarkerEditorView: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    /// The start and, for a clip, the end as big numerals side by side. Tap
-    /// one to make it the time the nudges act on; tap the number to type.
     private var times: some View {
         HStack(spacing: 0) {
             if end != nil {
@@ -278,11 +260,6 @@ struct MarkerEditorView: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    /// Sets the selected time to wherever the song has got to. It sits up
-    /// here rather than among the nudges because it belongs to the number it
-    /// writes, and because it's the one control that works in time with the
-    /// music: audition a passage and tap this on the beat, instead of having
-    /// to already know the number.
     private func nowChip(for title: String) -> some View {
         Button {
             setSelected(controller.playbackTime)
@@ -298,8 +275,6 @@ struct MarkerEditorView: View {
         .accessibilityLabel("Set \(title.lowercased()) to the current position")
     }
 
-    /// One row of fine adjustment for whichever time is selected: a second
-    /// and a tenth either way, and Now to snap it to the playhead.
     private var nudgeRow: some View {
         HStack(spacing: 8) {
             nudge(-1)
@@ -328,15 +303,8 @@ struct MarkerEditorView: View {
         selectedTime.wrappedValue = max(range.lowerBound, min(value, range.upperBound))
     }
 
-    /// The transport, so the song can be listened to properly from in here:
-    /// play/pause on the left, and beside it the one or two places worth
-    /// dropping the playhead while you're placing a handle.
-    ///
-    /// The cue buttons start the song and leave it running. A two-second
-    /// snippet is enough to tell you a handle landed somewhere, but not
-    /// whether the clip is the right piece of music — and a snippet that stops
-    /// itself leaves you with nothing to press when you want it to stop
-    /// sooner.
+    /// The cue buttons leave the song running: a snippet that stops itself
+    /// can't tell you whether the clip is the right piece of music.
     private var transportRow: some View {
         HStack(spacing: 8) {
             playPauseButton
@@ -345,9 +313,7 @@ struct MarkerEditorView: View {
                 cueButton("Start", spoken: "Play from the start of the clip") {
                     controller.playFrom(start)
                 }
-                // Before the end rather than at it: what you're listening for
-                // is whether the clip ends in the right place, which you can
-                // only hear by running into it.
+                // Before the end, so you hear the clip run into it.
                 cueButton("End", spoken: "Play into the end of the clip") {
                     controller.playFrom(max(start, end - Self.leadIn))
                 }
@@ -389,12 +355,10 @@ struct MarkerEditorView: View {
 
 // MARK: - Time field
 
-/// A text field showing `m:ss.t` that only writes back a time it could parse,
-/// and only once the user has finished typing.
+/// Only writes back a time it could parse, and only once editing ends.
 private struct PreciseTimeField: View {
     @Binding var time: TimeInterval
     let range: ClosedRange<TimeInterval>
-    /// Called when the field takes focus, so typing into a time selects it.
     var onFocus: () -> Void = {}
 
     @State private var text = ""
@@ -420,8 +384,7 @@ private struct PreciseTimeField: View {
     }
 }
 
-/// Tenth-of-a-second time strings for the editor. The scrubber's `m:ss` is
-/// right for a playhead but not for a point you're placing on a beat.
+/// Tenth-of-a-second time strings, for placing a point on a beat.
 enum PreciseTime {
     /// `1:03.4`; hours only when the track needs them.
     static func format(_ seconds: TimeInterval) -> String {
@@ -448,7 +411,6 @@ enum PreciseTime {
         return total
     }
 
-    /// `1s` or `0.1s`, for the nudge buttons.
     static func nudgeLabel(_ amount: TimeInterval) -> String {
         amount == amount.rounded() ? "\(Int(amount))s" : "\(amount)s"
     }

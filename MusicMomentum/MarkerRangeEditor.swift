@@ -8,36 +8,25 @@ import SwiftUI
 import UIKit
 #endif
 
-/// One of a marker's two draggable times.
 enum MarkerHandle {
     case start, end
 }
 
-/// A big, zoomable strip of the track with a drag handle for a marker's start
-/// and, when it has one, its end.
+/// A zoomable strip of the track with drag handles for a marker's times.
 ///
-/// There's no waveform: Apple Music tracks are DRM-protected and neither
-/// MusicKit nor `MPMediaItem` gives out their samples. What makes a point easy
-/// to land is zoom instead — across the whole of a four-minute song one point
-/// on screen is most of a second, but in the 5-second window it's about 15ms.
-/// In a zoomed window, dragging anywhere that isn't a handle pans.
-///
-/// Times come and go through the bindings; the strip never touches the player.
+/// No waveform: Apple Music tracks are DRM-protected and neither MusicKit nor
+/// `MPMediaItem` gives out samples. Zoom does the job instead — a point is
+/// most of a second across a whole song, about 15ms in the 5s window.
 struct MarkerRangeEditor: View {
     @Binding var start: TimeInterval
     @Binding var end: TimeInterval?
     let duration: TimeInterval
-    /// Drawn as a thin line so the user can see where the song is relative to
-    /// the handles after an audition.
     let playhead: TimeInterval
-    /// Reports which handle a drag took hold of, so the editor can point its
-    /// nudge controls at the same time.
     var onGrab: (MarkerHandle) -> Void = { _ in }
 
     enum Zoom: String, CaseIterable, Identifiable {
         case whole = "Song", thirty = "30s", five = "5s"
         var id: String { rawValue }
-        /// Seconds visible across the strip; `nil` for the whole track.
         var span: TimeInterval? {
             switch self {
             case .whole: nil
@@ -48,21 +37,17 @@ struct MarkerRangeEditor: View {
     }
 
     @State private var zoom: Zoom = .whole
-    /// Left edge of the visible window, in seconds.
     @State private var windowStart: TimeInterval = 0
     @State private var drag: Drag?
 
     private enum Drag {
         case start, end
-        /// Pan, remembering where the window was when the finger went down.
         case pan(from: TimeInterval)
-        /// A drag that started in the open on the whole-song view, where
-        /// there's nothing to pan. Swallowed rather than moving a handle
-        /// the user didn't touch.
+        /// A drag in the open on the whole-song view: swallowed rather than
+        /// moving a handle the user didn't touch.
         case nothing
     }
 
-    /// How close, in points, a finger has to land to a handle to grab it.
     private static let grabRadius: CGFloat = 28
     private static let barHeight: CGFloat = 64
     private static let labelHeight: CGFloat = 18
@@ -78,8 +63,6 @@ struct MarkerRangeEditor: View {
     var body: some View {
         VStack(spacing: 12) {
             HStack {
-                // What the strip is showing, so a zoomed window isn't a
-                // mystery stretch of the song.
                 Text("\(PlaybackScrubber.timeLabel(window.lowerBound)) – \(PlaybackScrubber.timeLabel(window.upperBound))")
                     .font(.footnote.monospacedDigit())
                     .foregroundStyle(.secondary)
@@ -96,11 +79,10 @@ struct MarkerRangeEditor: View {
         }
         .onAppear { recentre() }
         .onChange(of: zoom) { recentre() }
-        // Steppers and the typed fields can push a handle out of view.
+        // Nudges and the typed fields can push a handle out of view.
         .onChange(of: start) { if !window.contains(start) { recentre() } }
         .onChange(of: end) { if let end, !window.contains(end) { recentre() } }
-        // The steppers and time fields carry the same values for VoiceOver;
-        // a two-handle drag strip has no good spoken form.
+        // The time fields carry the same values for VoiceOver.
         .accessibilityHidden(true)
     }
 
@@ -145,10 +127,7 @@ struct MarkerRangeEditor: View {
         }
     }
 
-    /// Where the song has got to. It shares the strip with the tick lines,
-    /// which are hairlines in the same grey at the same height, so it can't be
-    /// one too: it gets a head, twice the width, full contrast, and a pale
-    /// halo to lift it off whatever it's crossing.
+    /// Needs a head, full contrast and a halo to tell it from the tick lines.
     private func playheadLine(at position: CGFloat) -> some View {
         VStack(spacing: 0) {
             Triangle()
@@ -183,8 +162,6 @@ struct MarkerRangeEditor: View {
         .offset(x: position - 11)
     }
 
-    /// Time labels along the bottom, spaced so five to eight fit whatever
-    /// the window is.
     private func ticks(width: CGFloat) -> some View {
         let interval = Self.tickInterval(for: span)
         let first = (window.lowerBound / interval).rounded(.up) * interval
@@ -226,8 +203,6 @@ struct MarkerRangeEditor: View {
         return windowStart + TimeInterval(x / width) * span
     }
 
-    /// Puts the selection in the middle of the window, or as near as the
-    /// track's edges allow.
     private func recentre() {
         let centre = end.map { (start + $0) / 2 } ?? start
         windowStart = clampWindowStart(centre - span / 2)
@@ -271,8 +246,6 @@ struct MarkerRangeEditor: View {
             .onEnded { _ in drag = nil }
     }
 
-    /// Which thing a touch at `x` takes hold of: the nearest handle if one is
-    /// within reach, otherwise the window itself.
     private func pick(atX touch: CGFloat, width: CGFloat) -> Drag {
         var nearest: (Drag, CGFloat) = (.start, abs(x(start, width: width) - touch))
         if let end {
@@ -284,8 +257,6 @@ struct MarkerRangeEditor: View {
     }
 }
 
-/// The playhead's head: a downward point, drawn here because it's the only
-/// triangle in the app.
 private struct Triangle: Shape {
     nonisolated func path(in rect: CGRect) -> Path {
         var path = Path()

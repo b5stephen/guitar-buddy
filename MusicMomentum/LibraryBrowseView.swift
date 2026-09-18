@@ -2,33 +2,23 @@
 //  LibraryBrowseView.swift
 //  MusicMomentum
 //
-//  Browsing, as opposed to searching. `MusicLibrarySearchRequest` needs a term
-//  before it returns anything, so the picker used to demand that the user
-//  already know what they wanted. `MusicLibraryRequest` returns the library
-//  itself, which lets them drill artist → album → song without typing.
+//  `MusicLibrarySearchRequest` needs a term; `MusicLibraryRequest` returns the
+//  library itself, so the user can drill artist → album → song without typing.
 //
 
 import MusicKit
 import SwiftData
 import SwiftUI
 
-/// Root of the browse hierarchy: the four ways into a music library, and above
-/// them the songs the user is already working on — the shortest way back to
-/// yesterday's practice, which is what most visits here are after.
 struct LibraryBrowseView: View {
-    /// Called with the chosen song; the picker dismisses itself from there.
     let onSelect: (Song) -> Void
 
     @Query(sort: \SavedSong.lastPracticed, order: .reverse)
     private var saved: [SavedSong]
 
-    /// The saved song being resolved back into a `Song`, and the one that
-    /// couldn't be — a saved row can outlive its place in the library.
     @State private var openingID: String?
     @State private var missingID: String?
 
-    /// Enough of the list to be worth offering, not so much that it buries the
-    /// four shelves underneath it.
     private static let recentLimit = 3
 
     var body: some View {
@@ -79,8 +69,6 @@ struct LibraryBrowseView: View {
         Array(saved.prefix(Self.recentLimit))
     }
 
-    /// The picker deals in `Song`s, and the saved list keeps only IDs, so a tap
-    /// here is a lookup before it's a choice.
     private func practise(_ song: SavedSong) {
         openingID = song.songID
         missingID = nil
@@ -195,8 +183,6 @@ struct LibraryBrowseView: View {
         }
     }
 
-    /// Album and playlist tracks arrive the same way — as a relationship that
-    /// has to be asked for explicitly, from the library rather than the catalog.
     private func trackList(of album: Album) -> some View {
         trackList(title: album.title) {
             try await album.with([.tracks], preferredSource: .library).tracks ?? []
@@ -220,9 +206,8 @@ struct LibraryBrowseView: View {
             emptyMessage: "This one has nothing in it to play.",
             load: load
         ) { track in
-            // Music videos live in the same track list but there's nothing to
-            // practice along to, so they're shown greyed out rather than hidden
-            // — otherwise the track numbers would appear to skip.
+            // Music videos are greyed out rather than hidden so track numbers
+            // don't appear to skip.
             Button {
                 if case .song(let song) = track { onSelect(song) }
             } label: {
@@ -236,8 +221,6 @@ struct LibraryBrowseView: View {
 
 // MARK: - Shelf sizes
 
-/// One of the four ways in. The icon is a tinted rounded square rather than a
-/// bare symbol so the shelves read as destinations, not as settings.
 private struct ShelfRow: View {
     let title: String
     let systemImage: String
@@ -259,8 +242,6 @@ private struct ShelfRow: View {
     }
 }
 
-/// A saved song offered at the top of the browse root. Smaller artwork than a
-/// result row, because this is a shortcut past the list rather than the list.
 private struct RecentRow: View {
     let song: SavedSong
     let isLoading: Bool
@@ -309,21 +290,18 @@ private struct RecentRow: View {
 
 // MARK: - Paging
 
-/// Loads a `MusicItemCollection` and extends it as the user reaches the bottom,
-/// so a big library doesn't have to arrive in one request. Owns the loading,
-/// empty and failure states so the four lists above don't each repeat them.
+/// Loads a `MusicItemCollection` a batch at a time, and owns the loading,
+/// empty and failure states.
 private struct PagedLibraryList<Item: MusicItem & Identifiable, Row: View>: View {
     let title: String
-    /// What this list holds, in the plural and lower case, for the sentence a
-    /// failure puts it in: "Couldn't load your albums".
+    /// Plural, lower case: "Couldn't load your albums".
     let shelf: String
     let emptyTitle: String
     let emptyMessage: String
     let load: () async throws -> MusicItemCollection<Item>
     @ViewBuilder let row: (Item) -> Row
 
-    /// `nil` until the first batch lands, which is what distinguishes "still
-    /// loading" from "the library really is empty".
+    /// `nil` until the first batch lands, as distinct from empty.
     @State private var items: MusicItemCollection<Item>?
     @State private var errorMessage: String?
     @State private var isLoadingMore = false
@@ -336,9 +314,6 @@ private struct PagedLibraryList<Item: MusicItem & Identifiable, Row: View>: View
                 } description: {
                     Text(errorMessage)
                 } actions: {
-                    // The request is the only thing that failed, and a library
-                    // request usually fails for a reason that has passed by the
-                    // time the user reads about it.
                     Button("Try Again") {
                         self.errorMessage = nil
                         Task { await loadFirstBatch() }
@@ -357,10 +332,8 @@ private struct PagedLibraryList<Item: MusicItem & Identifiable, Row: View>: View
                     List {
                         ForEach(items) { row($0) }
                         if items.hasNextBatch {
-                            // A `List` builds rows lazily, so this only appears
-                            // — and only fetches — once the user scrolls to it.
-                            // Ghost rows rather than a spinner, because what's
-                            // arriving is more of the same list.
+                            // Rows are built lazily, so this only fetches once
+                            // the user scrolls to it.
                             VStack(spacing: 12) {
                                 SkeletonRow().opacity(0.5)
                                 SkeletonRow().opacity(0.25)
@@ -372,9 +345,6 @@ private struct PagedLibraryList<Item: MusicItem & Identifiable, Row: View>: View
                     .listStyle(.plain)
                 }
             } else {
-                // The shape of the list it's about to be, rather than a spinner
-                // in the middle of an empty screen: the wait reads as this list
-                // filling in.
                 List(0..<5, id: \.self) { index in
                     SkeletonRow()
                         .opacity(1 - Double(index) * 0.18)
@@ -413,8 +383,7 @@ private struct PagedLibraryList<Item: MusicItem & Identifiable, Row: View>: View
     }
 }
 
-/// A row with nothing in it yet: artwork and two lines of text, in the metrics
-/// the real rows use, so nothing moves when the content arrives.
+/// Same metrics as the real rows, so nothing moves when content arrives.
 private struct SkeletonRow: View {
     var body: some View {
         HStack(spacing: 12) {
@@ -446,10 +415,6 @@ private struct ArtistRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Artwork here is whatever the library happens to hold for an
-            // artist, which is often nothing — but a text-only row next to the
-            // album and song rows is what makes the browse levels look
-            // half-built.
             LibraryArtwork(artwork: artist.artwork, fallback: "music.microphone")
             Text(artist.name).lineLimit(1)
             Spacer(minLength: 0)
@@ -517,7 +482,6 @@ private struct TrackRow: View {
     }
 }
 
-/// Artwork at list-row size, or a placeholder when the item has none.
 private struct LibraryArtwork: View {
     let artwork: Artwork?
     let fallback: String
@@ -558,8 +522,6 @@ private extension Track {
     .modelContainer(container)
 }
 
-/// The three states of a browse level, driven through the real view by a load
-/// that hangs, comes back empty, or fails.
 private func albumsPreview(
     load: @escaping () async throws -> MusicItemCollection<Album>
 ) -> some View {

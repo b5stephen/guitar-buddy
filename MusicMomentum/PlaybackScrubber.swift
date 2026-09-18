@@ -8,48 +8,27 @@ import SwiftUI
 import UIKit
 #endif
 
-/// The Apple Music-style position bar: a thin track that thickens under your
-/// finger, elapsed time on the left, time remaining on the right.
-///
-/// Scrubbing is deliberately *not* wired straight through to the player. The
-/// bar reports a live position while the finger is down so the labels track
-/// it, and only commits a seek on release — one seek per gesture instead of
-/// sixty, which keeps the audio from stuttering as you drag.
-///
-/// The bar draws where the markers fall — a hairline per point, a band per
-/// clip, lit for the clips the loop is running — and leaves their names to
-/// the pills underneath. Names on the track only ever fitted a handful of
-/// them at ordinary type sizes, and a screen that rearranges itself when you
-/// add one more marker is worse than a screen with one layout.
+/// Position bar with the markers drawn on it. Only commits a seek on release
+/// — one per gesture, not sixty — so the audio doesn't stutter while dragging.
 struct PlaybackScrubber: View {
-    /// Where the playhead is, in seconds.
     let position: TimeInterval
-    /// Track length. Nothing to scrub without one, so the bar goes inert.
+    /// Inert when `nil`.
     let duration: TimeInterval?
-    /// The song's markers, drawn on the track so the pills below have
-    /// somewhere to point at.
     var markers: [Marker] = []
-    /// Called continuously with the finger's position while dragging.
     var onScrub: (TimeInterval) -> Void = { _ in }
-    /// Called once with the final position when the finger lifts.
     var onCommit: (TimeInterval) -> Void
 
-    /// A marker's footprint on the bar: a hairline for a point, a shaded
-    /// band between the two times for a clip.
     struct Marker: Identifiable {
         let id: AnyHashable
         let start: TimeInterval
         let end: TimeInterval?
-        /// In the running loop's scope, which is the one thing the track
-        /// shows in colour.
         var isLooping: Bool = false
 
         var isClip: Bool { end != nil }
     }
 
-    /// Live drag position. Non-nil only while a finger is down, and it — not
-    /// `position` — is what the bar draws, so the thumb never snaps back to a
-    /// stale playhead between the release and the player catching up.
+    /// What the bar draws while a finger is down, so the thumb never snaps
+    /// back to a stale playhead before the player catches up.
     @State private var dragPosition: TimeInterval?
 
     private var isDragging: Bool { dragPosition != nil }
@@ -83,8 +62,6 @@ struct PlaybackScrubber: View {
             ZStack(alignment: .leading) {
                 Capsule()
                     .fill(.quaternary)
-                // Dimmer than a plain tint fill: the lit loop bands are drawn
-                // in the same colour, and they're the thing to see.
                 Capsule()
                     .fill(.tint.opacity(0.45))
                     .frame(width: max(height, width * fraction))
@@ -93,8 +70,6 @@ struct PlaybackScrubber: View {
             }
             .frame(height: height)
             .frame(maxHeight: .infinity)
-            // A 44pt-tall hit area over a 6pt bar: the bar is the drawing,
-            // this is the target.
             .contentShape(.rect)
             .gesture(dragGesture(width: width))
             .animation(.snappy(duration: 0.2), value: isDragging)
@@ -103,10 +78,8 @@ struct PlaybackScrubber: View {
         .disabled(duration == nil)
     }
 
-    /// Points and clips on the track. Drawn over the fill in a neutral ink so
-    /// they stay legible on both the played and unplayed halves of the bar —
-    /// except the looping ones, which are taller than the bar and ringed in
-    /// the background colour so nothing behind them can swallow the tint.
+    /// Looping bands are ringed in the background colour so the played fill,
+    /// in the same tint, can't swallow them.
     @ViewBuilder
     private func markerOverlay(width: CGFloat, height: CGFloat) -> some View {
         if let duration, duration > 0 {
@@ -141,8 +114,7 @@ struct PlaybackScrubber: View {
         }
     }
 
-    /// Hollow rather than solid, so it stays visible sitting on top of a lit
-    /// loop band in the same tint as the fill behind it.
+    /// Hollow so it stays visible on top of a lit loop band.
     private func playhead(width: CGFloat, height: CGFloat) -> some View {
         Capsule()
             .fill(.background)
@@ -190,7 +162,7 @@ struct PlaybackScrubber: View {
         .foregroundStyle(.secondary)
     }
 
-    /// `m:ss`, growing to `h:mm:ss` only when a track actually runs that long.
+    /// `m:ss`, or `h:mm:ss` when needed.
     nonisolated static func timeLabel(_ seconds: TimeInterval) -> String {
         let total = Int(seconds.rounded(.down))
         let (h, m, s) = (total / 3600, (total % 3600) / 60, total % 60)
@@ -199,9 +171,7 @@ struct PlaybackScrubber: View {
             : String(format: "%d:%02d", m, s)
     }
 
-    /// How long something *is*, rather than where it falls: seconds up to a
-    /// minute, because "45s" is the number you compare passages on, and m:ss
-    /// past that where seconds alone stop being readable.
+    /// `45s` under a minute, `m:ss` past it.
     nonisolated static func lengthLabel(_ seconds: TimeInterval) -> String {
         seconds < 60
             ? "\(Int(seconds.rounded()))s"
@@ -224,8 +194,7 @@ struct PlaybackScrubber: View {
         .padding(.horizontal, 32)
 }
 
-// The case the halo around a lit band is there for: the loop is behind the
-// playhead, so the band is sitting on the played fill in the same tint.
+// The case the halo around a lit band is there for.
 #Preview("Looping, already played") {
     PlaybackScrubber(
         position: 190,
