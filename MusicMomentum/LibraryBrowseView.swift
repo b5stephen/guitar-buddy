@@ -1,6 +1,6 @@
 //
 //  LibraryBrowseView.swift
-//  GuitarBuddy
+//  MusicMomentum
 //
 //  Browsing, as opposed to searching. `MusicLibrarySearchRequest` needs a term
 //  before it returns anything, so the picker used to demand that the user

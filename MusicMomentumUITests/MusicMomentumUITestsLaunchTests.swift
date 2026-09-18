@@ -1,13 +1,13 @@
 //
-//  GuitarBuddyUITestsLaunchTests.swift
-//  GuitarBuddyUITests
+//  MusicMomentumUITestsLaunchTests.swift
+//  MusicMomentumUITests
 //
 //  Created by Stephen Denekamp on 05/09/2026.
 //
 
 import XCTest
 
-final class GuitarBuddyUITestsLaunchTests: XCTestCase {
+final class MusicMomentumUITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true

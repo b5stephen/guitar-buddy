@@ -1,6 +1,6 @@
 //
 //  PlaybackController.swift
-//  GuitarBuddy
+//  MusicMomentum
 //
 
 import Foundation

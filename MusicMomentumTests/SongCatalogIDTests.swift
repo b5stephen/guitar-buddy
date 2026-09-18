@@ -1,12 +1,12 @@
 //
 //  SongCatalogIDTests.swift
-//  GuitarBuddyTests
+//  MusicMomentumTests
 //
 
 import Foundation
 import MusicKit
 import Testing
-@testable import GuitarBuddy
+@testable import MusicMomentum
 
 /// Reading a catalog ID out of `PlayParameters`, which is how a saved song
 /// survives being removed from the user's library.

@@ -1,6 +1,6 @@
 //
-//  GuitarBuddyTests.swift
-//  GuitarBuddyTests
+//  MusicMomentumTests.swift
+//  MusicMomentumTests
 //
 //  Created by Stephen Denekamp on 05/09/2026.
 //
@@ -8,7 +8,7 @@
 import Foundation
 import SwiftData
 import Testing
-@testable import GuitarBuddy
+@testable import MusicMomentum
 
 /// The storage rules behind the saved list. These are the parts of the feature
 /// worth testing: the views need a simulator and `SongLookup` needs a real

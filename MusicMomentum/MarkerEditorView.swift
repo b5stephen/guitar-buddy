@@ -1,6 +1,6 @@
 //
 //  MarkerEditorView.swift
-//  GuitarBuddy
+//  MusicMomentum
 //
 
 import SwiftData

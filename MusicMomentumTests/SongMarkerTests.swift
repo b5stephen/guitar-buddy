@@ -1,12 +1,12 @@
 //
 //  SongMarkerTests.swift
-//  GuitarBuddyTests
+//  MusicMomentumTests
 //
 
 import Foundation
 import SwiftData
 import Testing
-@testable import GuitarBuddy
+@testable import MusicMomentum
 
 /// The storage rules for points and clips, and the time parsing behind the
 /// editor's typed fields.

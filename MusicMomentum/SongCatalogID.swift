@@ -1,6 +1,6 @@
 //
 //  SongCatalogID.swift
-//  GuitarBuddy
+//  MusicMomentum
 //
 
 import Foundation

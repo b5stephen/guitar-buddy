@@ -1,6 +1,6 @@
 //
 //  SongMarker.swift
-//  GuitarBuddy
+//  MusicMomentum
 //
 
 import Foundation

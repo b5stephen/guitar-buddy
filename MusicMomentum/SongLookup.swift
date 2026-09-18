@@ -1,6 +1,6 @@
 //
 //  SongLookup.swift
-//  GuitarBuddy
+//  MusicMomentum
 //
 
 import MusicKit

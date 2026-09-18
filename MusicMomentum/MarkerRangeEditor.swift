@@ -1,6 +1,6 @@
 //
 //  MarkerRangeEditor.swift
-//  GuitarBuddy
+//  MusicMomentum
 //
 
 import SwiftUI

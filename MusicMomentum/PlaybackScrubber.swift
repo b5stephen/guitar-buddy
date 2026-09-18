@@ -1,6 +1,6 @@
 //
 //  PlaybackScrubber.swift
-//  GuitarBuddy
+//  MusicMomentum
 //
 
 import SwiftUI

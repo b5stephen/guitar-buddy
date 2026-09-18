@@ -1,6 +1,6 @@
 //
 //  ContentView.swift
-//  GuitarBuddy
+//  MusicMomentum
 //
 
 import MusicKit
@@ -447,9 +447,9 @@ struct ContentView: View {
             diameter: wheelDiameter(width: width),
             systemImage: "lock",
             headline: "Apple Music access needed",
-            detail: "Guitar Buddy plays songs from your own library and Apple Music. It can't reach either one until you allow it.",
+            detail: "Music Momentum plays songs from your own library and Apple Music. It can't reach either one until you allow it.",
             actionTitle: "Open Settings",
-            footnote: "Settings › Guitar Buddy › Media & Apple Music"
+            footnote: "Settings › Music Momentum › Media & Apple Music"
         ) {
             #if canImport(UIKit)
             if let url = URL(string: UIApplication.openSettingsURLString) {
@@ -646,9 +646,9 @@ struct MarkGlyph: View {
         diameter: 260,
         systemImage: "lock",
         headline: "Apple Music access needed",
-        detail: "Guitar Buddy plays songs from your own library and Apple Music. It can't reach either one until you allow it.",
+        detail: "Music Momentum plays songs from your own library and Apple Music. It can't reach either one until you allow it.",
         actionTitle: "Open Settings",
-        footnote: "Settings › Guitar Buddy › Media & Apple Music"
+        footnote: "Settings › Music Momentum › Media & Apple Music"
     ) {}
         .padding(.vertical, 16)
         .tint(.pink)

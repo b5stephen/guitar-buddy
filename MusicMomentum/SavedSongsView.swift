@@ -1,6 +1,6 @@
 //
 //  SavedSongsView.swift
-//  GuitarBuddy
+//  MusicMomentum
 //
 
 import MusicKit

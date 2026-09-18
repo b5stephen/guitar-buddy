@@ -1,12 +1,12 @@
 //
 //  LoopChainTests.swift
-//  GuitarBuddyTests
+//  MusicMomentumTests
 //
 
 import Foundation
 import SwiftData
 import Testing
-@testable import GuitarBuddy
+@testable import MusicMomentum
 
 /// The rules a clip chain follows as the playhead moves through it: which clip
 /// it's in, when to send it to the next, and when to leave it alone. Tested

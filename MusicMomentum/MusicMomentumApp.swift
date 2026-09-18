@@ -1,6 +1,6 @@
 //
-//  GuitarBuddyApp.swift
-//  GuitarBuddy
+//  MusicMomentumApp.swift
+//  MusicMomentum
 //
 //  Created by Stephen Denekamp on 05/09/2026.
 //
@@ -9,7 +9,7 @@ import SwiftData
 import SwiftUI
 
 @main
-struct GuitarBuddyApp: App {
+struct MusicMomentumApp: App {
     var body: some Scene {
         WindowGroup {
             RootTabView()

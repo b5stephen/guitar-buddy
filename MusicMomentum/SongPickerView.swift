@@ -1,6 +1,6 @@
 //
 //  SongPickerView.swift
-//  GuitarBuddy
+//  MusicMomentum
 //
 //  NOTE: The project brief calls for the `.musicPicker` SwiftUI modifier, which
 //  still doesn't exist in the iOS 26.5 SDK this project builds against (nothing

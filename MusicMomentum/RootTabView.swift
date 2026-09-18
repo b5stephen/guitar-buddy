@@ -1,6 +1,6 @@
 //
 //  RootTabView.swift
-//  GuitarBuddy
+//  MusicMomentum
 //
 
 import SwiftData

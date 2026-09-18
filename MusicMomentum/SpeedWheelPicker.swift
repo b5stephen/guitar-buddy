@@ -1,6 +1,6 @@
 //
 //  SpeedWheelPicker.swift
-//  GuitarBuddy
+//  MusicMomentum
 //
 
 import SwiftUI

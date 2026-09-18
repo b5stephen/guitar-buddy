@@ -1,6 +1,6 @@
 //
 //  SavedSong.swift
-//  GuitarBuddy
+//  MusicMomentum
 //
 
 import Foundation

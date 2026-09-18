@@ -1,6 +1,6 @@
 //
 //  MarkerPills.swift
-//  GuitarBuddy
+//  MusicMomentum
 //
 
 import SwiftData
