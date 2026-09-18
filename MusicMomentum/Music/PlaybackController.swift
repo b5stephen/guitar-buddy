@@ -230,24 +230,15 @@ final class PlaybackController {
         }
     }
 
-    /// Returns whether the song was found, so the caller doesn't send the user
-    /// to a practice screen still showing the previous track.
-    @discardableResult
-    func select(saved: SavedSong) async -> Bool {
-        do {
-            guard let song = try await SongLookup.song(
-                libraryID: saved.songID,
-                catalogID: saved.catalogID
-            ) else {
-                errorMessage = "That song isn't in your library or on Apple Music any more."
-                return false
-            }
-            await select(song: song)
-            return true
-        } catch {
-            errorMessage = "Couldn't find that song: \(error.localizedDescription)"
-            return false
-        }
+    /// Throws rather than setting `errorMessage`: a failed lookup leaves the
+    /// player untouched, so the message belongs to the screen that asked,
+    /// not to a song banner that would outlive it.
+    func select(saved: SavedSong) async throws {
+        guard let song = try await SongLookup.song(
+            libraryID: saved.songID,
+            catalogID: saved.catalogID
+        ) else { throw SongGoneError() }
+        await select(song: song)
     }
 
     func togglePlayPause() {
@@ -262,6 +253,7 @@ final class PlaybackController {
         Task {
             do {
                 try await playerBox.play()
+                errorMessage = nil
                 hasPlayed = true
                 await applyPendingStart()
                 try? await Task.sleep(for: .milliseconds(300))

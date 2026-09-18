@@ -189,12 +189,14 @@ struct SavedSongsView: View {
                 lookupError = "Allow Apple Music access in Settings to practice this song."
                 return
             }
-            let found = await controller.select(saved: song)
-            loadingID = nil
-            guard found else {
-                lookupError = controller.errorMessage
+            do {
+                try await controller.select(saved: song)
+            } catch {
+                loadingID = nil
+                lookupError = message(for: error)
                 return
             }
+            loadingID = nil
             if let marker { controller.jump(to: marker) }
             SavedSong.touch(song, in: modelContext)
             onPractice()
@@ -215,14 +217,22 @@ struct SavedSongsView: View {
                 lookupError = "Allow Apple Music access in Settings to mark up this song."
                 return
             }
-            let found = await controller.select(saved: song)
-            loadingID = nil
-            guard found else {
-                lookupError = controller.errorMessage
+            do {
+                try await controller.select(saved: song)
+            } catch {
+                loadingID = nil
+                lookupError = message(for: error)
                 return
             }
+            loadingID = nil
             present(song, marker: marker)
         }
+    }
+
+    private func message(for error: Error) -> String {
+        error is SongGoneError
+            ? error.localizedDescription
+            : "Couldn't find that song: \(error.localizedDescription)"
     }
 
     private func present(_ song: SavedSong, marker: SongMarker?) {
