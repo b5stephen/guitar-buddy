@@ -93,7 +93,11 @@ struct PracticeView: View {
 
         Spacer(minLength: 16)
 
-        SpeedWheelPicker(speed: $controller.playbackRate, diameter: wheelDiameter(width: width))
+        SpeedWheelPicker(
+            speed: $controller.playbackRate,
+            savedSpeed: savedSong?.speed,
+            diameter: wheelDiameter(width: width)
+        )
 
         Spacer(minLength: 16)
 

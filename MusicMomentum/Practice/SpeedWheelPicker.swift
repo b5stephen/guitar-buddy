@@ -14,6 +14,10 @@ import UIKit
 struct SpeedWheelPicker: View {
     @Binding var speed: Double
 
+    /// A double tap toggles between this and full speed; with none, it only
+    /// ever goes to full speed.
+    var savedSpeed: Double? = nil
+
     var diameter: CGFloat = 260
 
     /// Integers so tick generation and snapping never drift on float arithmetic.
@@ -44,12 +48,7 @@ struct SpeedWheelPicker: View {
                 // The drag gesture has `minimumDistance: 0`, so a plain
                 // `.onTapGesture` never fires. The drag a double tap also
                 // triggers moves no distance and commits the value unchanged.
-                .simultaneousGesture(TapGesture(count: 2).onEnded { reset() })
-
-            Text("Turn the wheel to adjust — double-tap for 100%")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
+                .simultaneousGesture(TapGesture(count: 2).onEnded { toggleFullSpeed() })
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Playback speed")
@@ -287,18 +286,28 @@ struct SpeedWheelPicker: View {
         speed = Double(snapped) / 100
     }
 
-    private func reset() {
-        guard currentPercent != maxPercent else { return }
+    /// Heads for the saved speed unless already there, in which case full
+    /// speed; with nothing saved, full speed is the only destination.
+    private func toggleFullSpeed() {
+        let savedPercent = savedSpeed.map { clamp(Int(($0 * 100).rounded())) }
+        let target: Int
+        if let savedPercent, currentPercent != savedPercent {
+            target = savedPercent
+        } else if currentPercent != maxPercent {
+            target = maxPercent
+        } else {
+            return
+        }
         dragPercent = nil
         #if canImport(UIKit)
         limit.impactOccurred()
         #endif
-        speed = 1.0
+        speed = Double(target) / 100
     }
 }
 
 #Preview {
     @Previewable @State var speed = 0.75
-    SpeedWheelPicker(speed: $speed)
+    SpeedWheelPicker(speed: $speed, savedSpeed: 0.8)
         .padding()
 }
