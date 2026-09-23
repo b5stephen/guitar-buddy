@@ -417,6 +417,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MusicMomentum/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Music Momentum";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Lets you search and play songs from your personal music library to practice with";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -453,6 +454,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MusicMomentum/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Music Momentum";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Lets you search and play songs from your personal music library to practice with";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
