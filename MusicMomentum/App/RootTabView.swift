@@ -28,6 +28,11 @@ struct RootTabView: View {
             }
         }
         .task { controller.configure(modelContext: modelContext) }
+        // Hands are on the guitar, not the screen. iOS ignores this while
+        // the app is in the background, so it needs no scene-phase check.
+        .onChange(of: controller.isPlaying, initial: true) { _, playing in
+            UIApplication.shared.isIdleTimerDisabled = playing
+        }
     }
 }
 
