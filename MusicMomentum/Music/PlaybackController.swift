@@ -75,7 +75,30 @@ final class PlaybackController {
         self.modelContext = modelContext
         readPlaybackTime()
         startTicking()
+        startObservingStatus()
         Task { await restoreLastSong() }
+    }
+
+    /// Resuming from the lock screen or Control Centre bypasses `play()`, and
+    /// the player always resumes at full speed, so the rate is re-applied on
+    /// every start. The background audio mode is what keeps this running while
+    /// the phone is locked.
+    private var statusObservation: Task<Void, Never>?
+
+    private func startObservingStatus() {
+        guard statusObservation == nil else { return }
+        statusObservation = Task { [weak self] in
+            let statuses = Observations { @MainActor in ApplicationMusicPlayer.shared.state.playbackStatus }
+            for await status in statuses {
+                guard let self else { return }
+                guard status == .playing, self.selectedSong != nil,
+                      abs(Double(self.player.state.playbackRate) - self.playbackRate) > 0.01
+                else { continue }
+                self.applyRateIfPossible()
+                try? await Task.sleep(for: .milliseconds(300))
+                self.verifyRateStuck()
+            }
+        }
     }
 
     /// Never prompts for access: an app that hasn't been authorised comes up

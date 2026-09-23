@@ -29,9 +29,22 @@
 		DCD17BB9304BF15800BC02ED /* MusicMomentumUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MusicMomentumUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		DCD17BF0304BF16000BC02ED /* Exceptions for "MusicMomentum" folder in "MusicMomentum" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = DCD17B9F304BF15600BC02ED /* MusicMomentum */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		DCD17BA2304BF15600BC02ED /* MusicMomentum */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				DCD17BF0304BF16000BC02ED /* Exceptions for "MusicMomentum" folder in "MusicMomentum" target */,
+			);
 			path = MusicMomentum;
 			sourceTree = "<group>";
 		};
@@ -402,6 +415,7 @@
 				DEVELOPMENT_TEAM = 2FBZHF6G7Q;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MusicMomentum/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Music Momentum";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Lets you search and play songs from your personal music library to practice with";
@@ -437,6 +451,7 @@
 				DEVELOPMENT_TEAM = 2FBZHF6G7Q;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MusicMomentum/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Music Momentum";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Lets you search and play songs from your personal music library to practice with";
