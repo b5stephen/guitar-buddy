@@ -492,6 +492,8 @@ private struct ArrivalState: View {
                 .multilineTextAlignment(.center)
                 .padding(.top, 12)
                 .padding(.horizontal, 40)
+
+            Spacer(minLength: 16)
         }
         // So its own gaps, not the stack around it, absorb the spare space.
         .frame(maxHeight: .infinity)
